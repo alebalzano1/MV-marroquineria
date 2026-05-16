@@ -712,33 +712,6 @@
           );
         }
 
-              {editModal && (
-                <EditModal
-                  product={editModal === "new" ? null : editModal}
-                  onSave={saveProduct}
-                  onClose={() => setEditModal(null)}
-                />
-              )}
-
-              {deleteConfirm && (
-                <div style={s.overlay} onClick={() => setDeleteConfirm(null)}>
-                  <div style={s.authBox} onClick={e => e.stopPropagation()}>
-                    <h3>¿Eliminar producto?</h3>
-                    <div style={{ display:"flex", gap:12, width:"100%" }}>
-                      <button style={{ flex:1 }} onClick={() => setDeleteConfirm(null)}>No</button>
-                      <button style={{ flex:1, color:"#f87171" }} onClick={() => deleteProduct(deleteConfirm)}>Sí</button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {toast && (
-                <div style={{ position:"fixed", bottom:28, right:28, background: SURFACE, borderLeft:`4px solid ${ACCENT}`, padding:16, zIndex:9999 }}>{toast}</div>
-              )}
-            </div>
-          );
-        }
-
         function EditModal({ product, onSave, onClose }) {
           const isNew = !product;
           const [form, setForm] = useState(product ? { ...product, colorsStr: product.colors.join(", ") } : {
