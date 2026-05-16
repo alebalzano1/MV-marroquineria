@@ -1,13 +1,491 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>marroquineria</title>
-  </head>
-  <body>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MV Marroquinería — Artesanía en Cuero</title>
+    
+    <!-- React & Babel CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Estilos base para evitar flash antes de React */
+        body { background: #0e0b08; margin: 0; }
+        #root { min-height: 100vh; }
+    </style>
+</head>
+<body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // ============================================================
+        // CONFIGURACIÓN — cambiar por el número real del negocio
+        // ============================================================
+        const WA_NUMBER = "5491100000000";
+        const ADMIN_PASS = "mv2024";
+
+        const ACCENT = "#C8873A";
+        const BG = "#0e0b08";
+        const SURFACE = "#160f0a";
+        const SURFACE2 = "#1e140d";
+        const BORDER = "rgba(200,135,58,0.18)";
+        const TEXT = "#f0e6d3";
+        const MUTED = "#a0856b";
+
+        const INITIAL_PRODUCTS = [
+          { id: 1, name: "Bandolera Clásica", category: "Bolsos", price: 18500, colors: ["Camel", "Negro"], description: "Bandolera artesanal en cuero genuino con correa ajustable.", emoji: "👜", tag: "Más vendido", featured: true, available: true },
+          { id: 2, name: "Neceser Grande", category: "Neceseres", price: 12000, colors: ["Camel", "Negro"], description: "Neceser acolchado con cierre reforzado. Ideal para viajes.", emoji: "🧳", tag: null, featured: false, available: true },
+          { id: 3, name: "Billetera Hombre", category: "Billeteras", price: 7500, colors: ["Marrón", "Negro", "Azul"], description: "Billetera slim con tarjetero. Cuero vacuno de primera calidad.", emoji: "💼", tag: "Nuevo", featured: false, available: true },
+          { id: 4, name: "Bolso Casual", category: "Bolsos", price: 22000, colors: ["Camel", "Marrón"], description: "Bolso crossbody con múltiples compartimentos internos.", emoji: "🎒", tag: null, featured: false, available: true },
+          { id: 5, name: "Neceser Compacto", category: "Neceseres", price: 9000, colors: ["Negro", "Camel"], description: "Tamaño ideal para el día a día. Forro interior impermeable.", emoji: "🧴", tag: null, featured: false, available: true },
+          { id: 6, name: "Billetera Mujer", category: "Billeteras", price: 8200, colors: ["Camel", "Marrón", "Negro"], description: "Billetera compacta con monedero y múltiples bolsillos.", emoji: "👛", tag: "Nuevo", featured: true, available: true },
+          { id: 7, name: "Bandolera XL", category: "Bolsos", price: 26000, colors: ["Negro", "Marrón"], description: "Bolso grande ideal para uso diario o trabajo.", emoji: "🗃️", tag: null, featured: false, available: false },
+          { id: 8, name: "Tarjetero Slim", category: "Billeteras", price: 4500, colors: ["Marrón", "Negro", "Camel"], description: "Tarjetero minimalista para hasta 8 tarjetas.", emoji: "🪪", tag: null, featured: false, available: true },
+        ];
+
+        const CATEGORIES = ["Todos", "Bolsos", "Neceseres", "Billeteras"];
+        const COLOR_DOTS = { Camel: "#C8873A", Negro: "#1a1a1a", Marrón: "#6B3A2A", Azul: "#2A3A6B" };
+        const EMOJIS = ["👜","🧳","💼","🎒","🧴","👛","🗃️","🪪","👝","💍","🧣","🎩"];
+
+        const fmt = (n) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
+
+        function loadProducts() {
+          try {
+            const saved = localStorage.getItem("mv_products");
+            return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+          } catch { return INITIAL_PRODUCTS; }
+        }
+        function saveProducts(products) {
+          try { localStorage.setItem("mv_products", JSON.stringify(products)); } catch {}
+        }
+
+        // ─────────────────────────────────────────────
+        // COMPONENTES
+        // ─────────────────────────────────────────────
+
+        function AuthModal({ onSuccess, onClose }) {
+          const [pass, setPass] = useState("");
+          const [error, setError] = useState(false);
+          const [shake, setShake] = useState(false);
+
+          const submit = () => {
+            if (pass === ADMIN_PASS) { onSuccess(); }
+            else {
+              setError(true); setShake(true);
+              setTimeout(() => setShake(false), 500);
+            }
+          };
+
+          return (
+            <div style={s.overlay} onClick={onClose}>
+              <div
+                style={{ ...s.authBox, animation: shake ? "shake 0.4s ease" : "scaleIn 0.25s ease" }}
+                onClick={e => e.stopPropagation()}
+              >
+                <p style={{ fontFamily:"'Cinzel Decorative',serif", color: ACCENT, fontSize: 18, letterSpacing: 4, marginBottom: 24 }}>MV ADMIN</p>
+                <input
+                  type="password"
+                  placeholder="Contraseña..."
+                  value={pass}
+                  onChange={e => { setPass(e.target.value); setError(false); }}
+                  onKeyDown={e => e.key === "Enter" && submit()}
+                  style={{ ...s.authInput, borderColor: error ? "#f87171" : BORDER }}
+                  autoFocus
+                />
+                {error && <p style={{ color: "#f87171", fontSize: 12, marginTop: 8 }}>Contraseña incorrecta</p>}
+                <button style={s.goldBtn} onClick={submit}>ENTRAR</button>
+                <button style={s.ghostBtnSm} onClick={onClose}>Cancelar</button>
+              </div>
+            </div>
+          );
+        }
+
+        function EditModal({ product, onSave, onClose }) {
+          const isNew = !product;
+          const [form, setForm] = useState(product ? { ...product, colorsStr: product.colors.join(", ") } : {
+            name: "", category: "Bolsos", price: "", description: "", colorsStr: "Camel, Negro",
+            emoji: "👜", tag: "", featured: false, available: true
+          });
+
+          const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+          const submit = () => {
+            if (!form.name || !form.price) return;
+            const colors = form.colorsStr.split(",").map(c => c.trim()).filter(Boolean);
+            onSave({ ...form, price: Number(form.price), colors, id: product?.id });
+          };
+
+          return (
+            <div style={s.overlay} onClick={onClose}>
+              <div style={s.editDrawer} onClick={e => e.stopPropagation()} className="drawer">
+                <div style={{ padding:"24px 28px", borderBottom:`1px solid ${BORDER}`, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <h2 style={{ margin:0, fontSize:22, fontFamily:"'Cormorant Garamond',serif", fontWeight:400 }}>
+                    {isNew ? "Nuevo producto" : "Editar producto"}
+                  </h2>
+                  <button style={{ background:"none", border:"none", color: MUTED, fontSize:20, cursor:"pointer" }} onClick={onClose}>✕</button>
+                </div>
+                <div style={{ flex:1, overflowY:"auto", padding:"24px 28px", display:"flex", flexDirection:"column", gap:20 }}>
+                  <div>
+                    <label style={s.label}>ÍCONO DEL PRODUCTO</label>
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                      {EMOJIS.map(e => (
+                        <button key={e} onClick={() => set("emoji", e)} style={{ fontSize:24, padding:8, background: form.emoji === e ? "rgba(200,135,58,0.2)" : SURFACE2, border:`1px solid ${form.emoji === e ? ACCENT : BORDER}`, borderRadius:8, cursor:"pointer" }}>{e}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+                    <div>
+                      <label style={s.label}>NOMBRE *</label>
+                      <input value={form.name} onChange={e => set("name", e.target.value)} placeholder="Ej: Bandolera Clásica" style={s.input} />
+                    </div>
+                    <div>
+                      <label style={s.label}>PRECIO ($) *</label>
+                      <input type="number" value={form.price} onChange={e => set("price", e.target.value)} placeholder="18500" style={s.input} />
+                    </div>
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+                    <div>
+                      <label style={s.label}>CATEGORÍA</label>
+                      <select value={form.category} onChange={e => set("category", e.target.value)} style={s.input}>
+                        {["Bolsos","Billeteras","Neceseres","Accesorios"].map(c => <option key={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={s.label}>ETIQUETA (opcional)</label>
+                      <input value={form.tag || ""} onChange={e => set("tag", e.target.value || null)} placeholder="Ej: Nuevo, Top, Oferta" style={s.input} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={s.label}>DESCRIPCIÓN</label>
+                    <textarea value={form.description} onChange={e => set("description", e.target.value)} rows={3} style={{ ...s.input, resize:"vertical", lineHeight:1.6 }} placeholder="Material, medidas, características..." />
+                  </div>
+                  <div>
+                    <label style={s.label}>COLORES (separados por coma)</label>
+                    <input value={form.colorsStr} onChange={e => set("colorsStr", e.target.value)} placeholder="Camel, Negro, Marrón" style={s.input} />
+                  </div>
+                  <div style={{ display:"flex", gap:24 }}>
+                    {[["featured","⭐ Destacado"],["available","✓ Disponible"]].map(([k, label]) => (
+                      <label key={k} style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontSize:14, fontFamily:"sans-serif", color: TEXT }}>
+                        <input type="checkbox" checked={form[k]} onChange={e => set(k, e.target.checked)} style={{ width:16, height:16, accentColor: ACCENT }} />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ padding:"20px 28px", borderTop:`1px solid ${BORDER}`, display:"flex", gap:12 }}>
+                  <button style={{ flex:1, padding:14, background:"#2a2a2a", border:"none", color: TEXT, borderRadius:8, cursor:"pointer", fontFamily:"sans-serif" }} onClick={onClose}>Cancelar</button>
+                  <button style={{ flex:2, padding:14, background: ACCENT, border:"none", color:"#000", borderRadius:8, cursor:"pointer", fontWeight:700, textTransform:"uppercase", letterSpacing:1, fontFamily:"sans-serif" }} onClick={submit}>
+                    {isNew ? "Crear producto" : "Guardar cambios"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        function Shop({ products, onOpenAuth, children }) {
+          const [activeCategory, setActiveCategory] = useState("Todos");
+          const [cart, setCart] = useState(() => { try { return JSON.parse(localStorage.getItem("mv_cart") || "[]"); } catch { return []; } });
+          const [cartOpen, setCartOpen] = useState(false);
+          const [selectedColors, setSelectedColors] = useState({});
+          const [addedId, setAddedId] = useState(null);
+          const [heroVisible, setHeroVisible] = useState(false);
+
+          useEffect(() => { setTimeout(() => setHeroVisible(true), 100); }, []);
+          useEffect(() => { try { localStorage.setItem("mv_cart", JSON.stringify(cart)); } catch {} }, [cart]);
+
+          const visibleProducts = products.filter(p => p.available !== false);
+          const filtered = activeCategory === "Todos" ? visibleProducts : visibleProducts.filter(p => p.category === activeCategory);
+
+          const addToCart = (product) => {
+            const color = selectedColors[product.id] || product.colors[0];
+            const key = `${product.id}-${color}`;
+            setCart(prev => {
+              const exists = prev.find(i => i.key === key);
+              if (exists) return prev.map(i => i.key === key ? { ...i, qty: i.qty + 1 } : i);
+              return [...prev, { ...product, color, key, qty: 1 }];
+            });
+            setAddedId(product.id);
+            setTimeout(() => setAddedId(null), 1200);
+          };
+
+          const removeFromCart = (key) => setCart(prev => prev.filter(i => i.key !== key));
+          const updateQty = (key, delta) => setCart(prev =>
+            prev.map(i => i.key === key ? { ...i, qty: Math.max(0, i.qty + delta) } : i).filter(i => i.qty > 0)
+          );
+
+          const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+          const cartCount = cart.reduce((s, i) => s + i.qty, 0);
+
+          const checkoutWA = () => {
+            if (!cart.length) return;
+            const lines = cart.map(i => `• ${i.name} (${i.color}) x${i.qty} — ${fmt(i.price * i.qty)}`).join("%0A");
+            const msg = `¡Hola! 👋 Quiero hacer el siguiente pedido:%0A%0A${lines}%0A%0A*Total: ${fmt(total)}*%0A%0A¿Podrían confirmarme disponibilidad? 🙏`;
+            window.open(`https://wa.me/${WA_NUMBER}?text=${msg}`, "_blank");
+          };
+
+          return (
+            <div style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", background: BG, color: TEXT, minHeight:"100vh", overflowX:"hidden" }}>
+              <style>{shopCSS}</style>
+              <nav style={s.nav}>
+                <div style={s.navInner}>
+                  <div style={s.navLogo}>
+                    <span style={s.logoM}>MV</span>
+                    <span style={s.logoText}>MARROQUINERÍA</span>
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap: 16 }}>
+                    <button style={s.cartBtn} onClick={() => setCartOpen(true)} className="cart-btn">
+                      🛒 {cartCount > 0 && <span style={s.cartBadge}>{cartCount}</span>}
+                    </button>
+                  </div>
+                </div>
+              </nav>
+
+              <header style={{ ...s.hero, opacity: heroVisible ? 1 : 0, transform: heroVisible ? "translateY(0)" : "translateY(24px)" }}>
+                <div style={s.heroGrain} />
+                <div style={{ position:"relative", zIndex:2, maxWidth:600 }}>
+                  <p style={{ fontSize:12, letterSpacing:4, color: ACCENT, textTransform:"uppercase", marginBottom:20, fontFamily:"sans-serif" }}>— Zona Oeste, Merlo —</p>
+                  <h1 style={{ fontSize:"clamp(48px,8vw,88px)", fontWeight:300, lineHeight:1.05, margin:"0 0 24px", color: TEXT }}>
+                    Cuero que<br /><em style={{ color: ACCENT }}>dura para siempre</em>
+                  </h1>
+                  <p style={{ fontSize:16, color: MUTED, lineHeight:1.7, marginBottom:36, fontFamily:"sans-serif", fontWeight:300 }}>
+                    Bolsos, billeteras y accesorios hechos a mano.<br />Envíos a domicilio · Efectivo y transferencia
+                  </p>
+                  <button className="cta-btn" style={s.goldBtn} onClick={() => document.getElementById("productos").scrollIntoView({ behavior:"smooth" })}>
+                    VER PRODUCTOS
+                  </button>
+                </div>
+              </header>
+
+              <section id="productos" style={{ maxWidth:1200, margin:"0 auto", padding:"60px 24px" }}>
+                <h2 style={{ fontSize:"clamp(28px,4vw,44px)", fontWeight:300, marginBottom:24 }}>Nuestros Productos</h2>
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:36 }}>
+                  {CATEGORIES.map(c => (
+                    <button key={c} style={{ ...s.catBtn, ...(activeCategory === c ? s.catBtnActive : {}) }} onClick={() => setActiveCategory(c)} className="cat-btn">{c}</button>
+                  ))}
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:24 }}>
+                  {filtered.map((p, i) => (
+                    <div key={p.id} style={{ ...s.card, animationDelay:`${i*60}ms` }} className="product-card">
+                      {p.featured && <span style={s.featuredBadge}>⭐ DESTACADO</span>}
+                      {p.tag && !p.featured && <span style={s.tagBadge}>{p.tag}</span>}
+                      <div style={{ fontSize:64, display:"flex", alignItems:"center", justifyContent:"center", height:140, background:"rgba(200,135,58,0.06)", borderBottom:`1px solid ${BORDER}` }}>{p.emoji}</div>
+                      <div style={{ padding:20 }}>
+                        <span style={{ fontSize:10, letterSpacing:3, color: ACCENT, textTransform:"uppercase", fontFamily:"sans-serif" }}>{p.category}</span>
+                        <h3 style={{ fontSize:20, fontWeight:600, margin:"6px 0 8px" }}>{p.name}</h3>
+                        <p style={{ fontSize:13, color:"#7a6550", lineHeight:1.6, marginBottom:14, fontFamily:"sans-serif" }}>{p.description}</p>
+                        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                          <span style={{ fontSize:22, fontWeight:700, color: ACCENT }}>{fmt(p.price)}</span>
+                          <button className="add-btn" style={{ ...s.addBtn, ...(addedId === p.id ? s.addBtnDone : {}) }} onClick={() => addToCart(p)}>
+                            {addedId === p.id ? "✓ Agregado" : "+ Agregar"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <footer style={{ textAlign:"center", padding:"48px 24px", display:"flex", flexDirection:"column", gap:8, alignItems:"center" }}>
+                <span style={{ fontSize:20, letterSpacing:6, color: ACCENT, fontFamily:"'Cinzel Decorative',serif" }}>MV MARROQUINERÍA</span>
+                <button onClick={onOpenAuth} style={{ marginTop:20, background:"none", border:"none", color:"rgba(255,255,255,0.15)", fontSize:11, cursor:"pointer", textDecoration:"underline", fontFamily:"sans-serif" }}>acceso privado</button>
+              </footer>
+
+              {cartOpen && (
+                <div style={s.overlay} onClick={() => setCartOpen(false)}>
+                  <div style={s.drawer} onClick={e => e.stopPropagation()} className="drawer">
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"20px 24px", borderBottom:`1px solid ${BORDER}` }}>
+                      <h2 style={{ fontSize:22, fontWeight:400, margin:0 }}>Tu carrito</h2>
+                      <button style={{ background:"none", border:"none", color: MUTED, fontSize:18, cursor:"pointer" }} onClick={() => setCartOpen(false)}>✕</button>
+                    </div>
+                    {cart.length === 0 ? (
+                      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:12 }}>
+                        <span style={{ fontSize:48 }}>🛒</span>
+                        <p style={{ color: MUTED, fontFamily:"sans-serif" }}>Tu carrito está vacío</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ flex:1, overflowY:"auto", padding:"8px 0" }}>
+                          {cart.map(item => (
+                            <div key={item.key} style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 24px", borderBottom:`1px solid rgba(200,135,58,0.08)` }}>
+                              <span style={{ fontSize:32, flexShrink:0 }}>{item.emoji}</span>
+                              <div style={{ flex:1, display:"flex", flexDirection:"column", gap:2 }}>
+                                <span style={{ fontSize:15, fontWeight:500 }}>{item.name}</span>
+                                <span style={{ fontSize:14, color: ACCENT }}>{fmt(item.price)}</span>
+                              </div>
+                              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                                <button style={s.qtyBtn} onClick={() => updateQty(item.key, -1)}>−</button>
+                                <span style={{ fontSize:15 }}>{item.qty}</span>
+                                <button style={s.qtyBtn} onClick={() => updateQty(item.key, 1)}>+</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ padding:"20px 24px", borderTop:`1px solid ${BORDER}`, display:"flex", flexDirection:"column", gap:14 }}>
+                          <div style={{ display:"flex", justifyContent:"space-between" }}>
+                            <span>Total</span>
+                            <span style={{ fontSize:28, fontWeight:700 }}>{fmt(total)}</span>
+                          </div>
+                          <button style={{ background:"#25D366", color:"#fff", border:"none", borderRadius:8, padding:16, fontSize:15, fontWeight:700, cursor:"pointer" }} onClick={checkoutWA}>
+                            💬 Pedir por WhatsApp
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+              {children}
+            </div>
+          );
+        }
+
+        function AdminPanel({ products, updateProducts, onExit }) {
+          const [editModal, setEditModal] = useState(null);
+          const [deleteConfirm, setDeleteConfirm] = useState(null);
+          const [toast, setToast] = useState(null);
+          const [search, setSearch] = useState("");
+          const [filterCat, setFilterCat] = useState("Todos");
+
+          const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
+
+          const toggleFeatured = (id) => {
+            updateProducts(products.map(p => p.id === id ? { ...p, featured: !p.featured } : p));
+            showToast("✓ Destacado actualizado");
+          };
+          const toggleAvailable = (id) => {
+            updateProducts(products.map(p => p.id === id ? { ...p, available: !p.available } : p));
+            showToast("✓ Disponibilidad actualizada");
+          };
+          const deleteProduct = (id) => {
+            updateProducts(products.filter(p => p.id !== id));
+            setDeleteConfirm(null);
+            showToast("🗑 Producto eliminado");
+          };
+          const saveProduct = (data) => {
+            if (editModal === "new") {
+              updateProducts([...products, { ...data, id: Date.now(), featured: false, available: true }]);
+              showToast("✓ Producto creado");
+            } else {
+              updateProducts(products.map(p => p.id === data.id ? data : p));
+              showToast("✓ Cambios guardados");
+            }
+            setEditModal(null);
+          };
+
+          const filtered = products
+            .filter(p => filterCat === "Todos" || p.category === filterCat)
+            .filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+
+          return (
+            <div style={{ fontFamily:"'DM Sans',sans-serif", background: BG, color: TEXT, minHeight:"100vh" }}>
+              <style>{adminCSS}</style>
+              <nav style={{ background: SURFACE, borderBottom:`1px solid ${BORDER}`, padding:"0 32px", height:64, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                  <span style={{ fontFamily:"'Cinzel Decorative',serif", fontSize:18, color: ACCENT }}>MV ADMIN</span>
+                </div>
+                <button style={{ background:"none", border:`1px solid #f87171`, color:"#f87171", borderRadius:6, padding:"7px 16px", cursor:"pointer" }} onClick={onExit}>
+                  ← Salir
+                </button>
+              </nav>
+
+              <div style={{ display:"flex", justifyContent:"space-between", padding:"24px 32px", gap:16 }}>
+                <input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} style={s.input} />
+                <button style={s.goldBtn} onClick={() => setEditModal("new")}>+ Nuevo</button>
+              </div>
+
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))", gap:20, padding:"0 32px 40px" }}>
+                {filtered.map(p => (
+                  <div key={p.id} style={{ background: SURFACE, border:`1px solid ${BORDER}`, borderRadius:12, padding:16 }}>
+                    <div style={{ fontSize:48, textAlign:"center", marginBottom:12 }}>{p.emoji}</div>
+                    <h3 style={{ margin:"0 0 8px" }}>{p.name}</h3>
+                    <p style={{ fontSize:14, color: ACCENT }}>{fmt(p.price)}</p>
+                    <div style={{ display:"flex", gap:8, marginTop:12 }}>
+                      <button style={{ flex:1, padding:8, background: SURFACE2, border:`1px solid ${ACCENT}`, color: ACCENT }} onClick={() => setEditModal(p)}>EDITAR</button>
+                      <button style={{ padding:8, background: p.available ? "#064e3b" : "#450a0a", border:"none", color:"#fff" }} onClick={() => toggleAvailable(p.id)}>{p.available ? "✓" : "✕"}</button>
+                      <button style={{ padding:8, background: "#450a0a", border:"none", color: "#f87171" }} onClick={() => setDeleteConfirm(p.id)}>🗑</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {editModal && <EditModal product={editModal === "new" ? null : editModal} onSave={saveProduct} onClose={() => setEditModal(null)} />}
+              {deleteConfirm && (
+                <div style={s.overlay} onClick={() => setDeleteConfirm(null)}>
+                    <div style={s.authBox} onClick={e => e.stopPropagation()}>
+                        <h3>¿Eliminar?</h3>
+                        <button style={s.goldBtn} onClick={() => deleteProduct(deleteConfirm)}>SÍ, ELIMINAR</button>
+                        <button style={s.ghostBtnSm} onClick={() => setDeleteConfirm(null)}>Cancelar</button>
+                    </div>
+                </div>
+              )}
+              {toast && <div style={{ position:"fixed", bottom:20, right:20, background: SURFACE, borderLeft:`4px solid ${ACCENT}`, padding:16, zIndex:9999 }}>{toast}</div>}
+            </div>
+          );
+        }
+
+        function App() {
+          const [view, setView] = useState("shop");
+          const [authOpen, setAuthOpen] = useState(false);
+          const [products, setProducts] = useState(loadProducts);
+
+          const updateProducts = (next) => { setProducts(next); saveProducts(next); };
+
+          if (view === "admin") return <AdminPanel products={products} updateProducts={updateProducts} onExit={() => setView("shop")} />;
+
+          return (
+            <Shop products={products} onOpenAuth={() => setAuthOpen(true)}>
+              {authOpen && <AuthModal onSuccess={() => { setAuthOpen(false); setView("admin"); }} onClose={() => setAuthOpen(false)} />}
+            </Shop>
+          );
+        }
+
+        const s = {
+          overlay: { position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:1000, display:"flex", justifyContent:"flex-end", alignItems:"center" },
+          authBox: { margin:"auto", width:"90%", maxWidth:360, background: SURFACE, border:`1px solid ${BORDER}`, borderRadius:16, padding:32, display:"flex", flexDirection:"column", alignItems:"center", gap:16 },
+          authInput: { width:"100%", padding:14, background:"#000", border:`1px solid ${BORDER}`, color: TEXT, borderRadius:8, textAlign:"center" },
+          goldBtn: { background: ACCENT, color:"#000", border:"none", borderRadius:6, padding:"13px 32px", fontWeight:700, cursor:"pointer" },
+          ghostBtnSm: { background:"none", border:"none", color: MUTED, cursor:"pointer" },
+          nav: { position:"sticky", top:0, zIndex:100, background:"rgba(14,11,8,0.92)", borderBottom:`1px solid ${BORDER}` },
+          navInner: { maxWidth:1200, margin:"0 auto", padding:"0 24px", height:64, display:"flex", alignItems:"center", justifyContent:"space-between" },
+          navLogo: { display:"flex", alignItems:"center", gap:10 },
+          logoM: { fontFamily:"'Cinzel Decorative',serif", fontSize:22, color: ACCENT },
+          logoText: { fontSize:13, letterSpacing:4, color: TEXT },
+          cartBtn: { background:"none", border:`1px solid ${ACCENT}`, borderRadius:8, padding:"6px 14px", cursor:"pointer", color: TEXT },
+          cartBadge: { background: ACCENT, color: BG, borderRadius:"50%", padding:"2px 6px", fontSize:11 },
+          hero: { position:"relative", minHeight:"80vh", display:"flex", alignItems:"center", padding:"0 24px" },
+          heroGrain: { position:"absolute", inset:0, background:`radial-gradient(circle, rgba(200,135,58,0.1) 0%, transparent 70%)` },
+          catBtn: { background:"none", border:`1px solid ${BORDER}`, color: MUTED, padding:"8px 16px", borderRadius:4, cursor:"pointer" },
+          catBtnActive: { background: ACCENT, color:"#000" },
+          card: { background:"rgba(255,255,255,0.03)", border:`1px solid ${BORDER}`, borderRadius:12, overflow:"hidden" },
+          featuredBadge: { position:"absolute", top:10, left:10, background: ACCENT, color:"#000", fontSize:10, padding:"4px 8px" },
+          tagBadge: { position:"absolute", top:10, right:10, background:"#000", color:"#fff", fontSize:10, padding:"4px 8px" },
+          addBtn: { background:"none", border:`1px solid ${ACCENT}`, color: ACCENT, padding:"8px 16px", borderRadius:4, cursor:"pointer" },
+          addBtnDone: { background: ACCENT, color:"#000" },
+          qtyBtn: { width:26, height:26, background: SURFACE2, border:`1px solid ${BORDER}`, color: ACCENT },
+          editDrawer: { width:"min(500px,100vw)", background: SURFACE, borderLeft:`1px solid ${BORDER}`, height:"100vh", display:"flex", flexDirection:"column" },
+          label: { display:"block", fontSize:11, color: MUTED, marginBottom:8 },
+          input: { width:"100%", background: SURFACE2, border:`1px solid ${BORDER}`, borderRadius:8, padding:11, color: TEXT },
+        };
+
+        const shopCSS = `
+          @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Cinzel+Decorative:wght@700&display=swap');
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          .drawer { animation: slideIn 0.3s ease; }
+          @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+          @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        `;
+
+        const adminCSS = `
+          @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
+        `;
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
 </html>
