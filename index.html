@@ -381,6 +381,7 @@
       view, setView, selectedProduct, setSelectedProduct, children
     }) {
       const [activeCategory, setActiveCategory] = useState("Todos");
+      const [logoLoaded, setLogoLoaded] = useState(false);
       const [cart, setCart] = useState(() => { try { return JSON.parse(localStorage.getItem("mv_cart") || "[]"); } catch { return []; } });
       const [cartOpen, setCartOpen] = useState(false);
       const [selectedColors, setSelectedColors] = useState({});
@@ -971,8 +972,8 @@
             <div style=${s.navInner}>
               <div style=${{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }} onClick=${() => setView("shop")}>
                 <!-- LOGO INSTITUCIONAL -->
-                <img src="logo.png" style=${s.logoImg} alt="Logo MV" onError=${e => e.target.style.display = "none"} />
-                <span style=${s.logoM}>MV</span>
+                <img src="logo.png" style=${s.logoImg} alt="Logo MV" onLoad=${() => setLogoLoaded(true)} onError=${e => { e.target.style.display = "none"; setLogoLoaded(false); }} />
+                ${!logoLoaded && html`<span style=${s.logoM}>MV</span>`}
                 <span style=${s.logoText}>MARROQUINERÍA</span>
               </div>
               <div style=${{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -2558,7 +2559,7 @@
       nav: { position: "sticky", top: 0, zIndex: 100, background: "rgba(14,11,8,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid " + BORDER },
       navInner: { maxWidth: 1200, margin: "0 auto", padding: "0 24px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between" },
       navLogo: { display: "flex", alignItems: "center", gap: 10 },
-      logoImg: { height: 32, width: "auto", objectFit: "contain" },
+      logoImg: { height: 42, width: "auto", objectFit: "contain", filter: "invert(1) brightness(1.2)", mixBlendMode: "screen" },
       logoM: { fontFamily: "'Cinzel Decorative',serif", fontSize: 22, fontWeight: 700, color: ACCENT, letterSpacing: 2 },
       logoText: { fontSize: 13, fontWeight: 600, letterSpacing: 4, color: TEXT, textTransform: "uppercase" },
       
