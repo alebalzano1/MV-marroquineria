@@ -25,6 +25,43 @@ const FirebaseService = {
         return isFirebaseActive;
     },
 
+    // --- AUTENTICACIÓN ---
+    async login(email, password) {
+        if (!isFirebaseActive) {
+            // Local fallback logic
+            return email === "admin" && password === "admin123";
+        }
+        try {
+            console.log("[Firebase] Iniciando sesión...");
+            const auth = firebase.auth();
+            auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+            return await auth.signInWithEmailAndPassword(email, password);
+        } catch (error) {
+            console.error("[Firebase] Error en inicio de sesión:", error);
+            throw error;
+        }
+    },
+
+    async logout() {
+        if (!isFirebaseActive) return;
+        try {
+            console.log("[Firebase] Cerrando sesión...");
+            await firebase.auth().signOut();
+        } catch (error) {
+            console.error("[Firebase] Error en cierre de sesión:", error);
+        }
+    },
+
+    onAuth(callback) {
+        if (!isFirebaseActive) {
+            callback(null);
+            return;
+        }
+        firebase.auth().onAuthStateChanged((user) => {
+            callback(user);
+        });
+    },
+
     // --- Autosiembra (Seeding) ---
     // Si la base de datos está vacía, se inicializa automáticamente con los valores por defecto
     async autoSeedDatabase(initialProducts, initialZones, initialCoupons, initialConfig) {

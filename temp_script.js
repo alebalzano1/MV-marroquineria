@@ -1,36 +1,3 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MV Marroquinería — Artesanía en Cuero</title>
-    
-    <!-- React 18 & ReactDOM -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <!-- HTM (No Babel!) -->
-    <script src="https://unpkg.com/htm@3.1.1/mini/index.js"></script>
-    <!-- SheetJS for Excel -->
-    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- Firebase Compat SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
-    <!-- Firebase Config & Services -->
-    <script src="firebase-config.js"></script>
-    <script src="firebase-service.js"></script>
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Outfit:wght@100..900&display=swap" rel="stylesheet">
-    <style>
-        body { background: #0e0b08; margin: 0; overflow-x: hidden; }
-        #root { min-height: 100vh; }
-    </style>
-</head>
-<body>
-    <div id="root"></div>
-    <script type="text/javascript">
 
     const { useState, useEffect } = React;
     const html = htm.bind(React.createElement);
@@ -87,9 +54,7 @@
     const INITIAL_CONFIG = {
       bannerText: "✨ ¡Envíos gratis en Merlo centro! ✨",
       bannerBg: "#C8873A",
-      bannerActive: true,
-      waNumber: "5491100000000",
-      waTemplate: "¡Hola! 👋 Quiero hacer el siguiente pedido:\n\n{details}\n\n📍 Zona de envío: {shipping}\n*Total a abonar: {total}*\n\nCliente: {name}\nTeléfono: {phone}"
+      bannerActive: true
     };
 
     const CATEGORIES = ["Todos", "Bolsos", "Neceseres", "Billeteras"];
@@ -174,7 +139,6 @@
       const [view, setView] = useState("shop"); // "shop" | "admin" | "product"
       const [selectedProduct, setSelectedProduct] = useState(null);
       const [authOpen, setAuthOpen] = useState(false);
-      const [dbLoading, setDbLoading] = useState(FirebaseService.isCloudActive());
 
       // State stores
       const [products, setProducts] = useState(loadProducts);
@@ -185,153 +149,13 @@
       const [customers, setCustomers] = useState(loadCustomers);
       const [favorites, setFavorites] = useState(loadFavorites);
 
-      // Cargar datos asíncronamente de Firebase al iniciar
-      useEffect(() => {
-        if (!FirebaseService.isCloudActive()) return;
-
-        const syncDatabase = async () => {
-          try {
-            // Autosiembra (Seeding) si está vacía
-            await FirebaseService.autoSeedDatabase(
-              INITIAL_PRODUCTS,
-              INITIAL_SHIPPING_ZONES,
-              INITIAL_COUPONS,
-              INITIAL_CONFIG
-            );
-
-            // Obtener todos los datos en paralelo
-            const [prods, zones, coups, conf, ords, custs] = await Promise.all([
-              FirebaseService.getProducts(),
-              FirebaseService.getShippingZones(),
-              FirebaseService.getCoupons(),
-              FirebaseService.getConfig(),
-              FirebaseService.getOrders(),
-              FirebaseService.getCustomers()
-            ]);
-
-            if (prods) { setProducts(prods); localStorage.setItem("mv_products", JSON.stringify(prods)); }
-            if (zones) { setShippingZones(zones); localStorage.setItem("mv_shipping_zones", JSON.stringify(zones)); }
-            if (coups) { setCoupons(coups); localStorage.setItem("mv_coupons", JSON.stringify(coups)); }
-            if (conf) { setConfig(conf); localStorage.setItem("mv_config", JSON.stringify(conf)); }
-            if (ords) { setOrders(ords); localStorage.setItem("mv_orders", JSON.stringify(ords)); }
-            if (custs) { setCustomers(custs); localStorage.setItem("mv_customers", JSON.stringify(custs)); }
-          } catch (err) {
-            console.error("❌ [Firebase] Error al sincronizar con la nube:", err);
-          } finally {
-            setDbLoading(false);
-          }
-        };
-
-        syncDatabase();
-      }, []);
-
-      const updateProducts = async (next) => {
-        setProducts(next);
-        localStorage.setItem("mv_products", JSON.stringify(next));
-        if (FirebaseService.isCloudActive()) {
-          try {
-            const cloudProds = await FirebaseService.getProducts();
-            const nextIds = next.map(p => p.id);
-            for (const c of cloudProds) {
-              if (!nextIds.includes(c.id)) {
-                await FirebaseService.deleteProduct(c.id);
-              }
-            }
-            for (const p of next) {
-              await FirebaseService.saveProduct(p);
-            }
-          } catch (e) {
-            console.error("[Firebase] Error al guardar productos:", e);
-          }
-        }
-      };
-
-      const updateShippingZones = async (next) => {
-        setShippingZones(next);
-        localStorage.setItem("mv_shipping_zones", JSON.stringify(next));
-        if (FirebaseService.isCloudActive()) {
-          try {
-            for (const z of next) {
-              await FirebaseService.saveShippingZone(z);
-            }
-          } catch (e) {
-            console.error("[Firebase] Error al guardar zonas de envío:", e);
-          }
-        }
-      };
-
-      const updateCoupons = async (next) => {
-        setCoupons(next);
-        localStorage.setItem("mv_coupons", JSON.stringify(next));
-        if (FirebaseService.isCloudActive()) {
-          try {
-            const cloudCoups = await FirebaseService.getCoupons();
-            const nextCodes = next.map(c => c.code);
-            for (const c of cloudCoups) {
-              if (!nextCodes.includes(c.code)) {
-                await FirebaseService.deleteCoupon(c.code);
-              }
-            }
-            for (const c of next) {
-              await FirebaseService.saveCoupon(c);
-            }
-          } catch (e) {
-            console.error("[Firebase] Error al guardar cupones:", e);
-          }
-        }
-      };
-
-      const updateConfig = async (next) => {
-        setConfig(next);
-        localStorage.setItem("mv_config", JSON.stringify(next));
-        if (FirebaseService.isCloudActive()) {
-          try {
-            await FirebaseService.saveConfig(next);
-          } catch (e) {
-            console.error("[Firebase] Error al guardar configuración:", e);
-          }
-        }
-      };
-
-      const updateOrders = async (next) => {
-        setOrders(next);
-        localStorage.setItem("mv_orders", JSON.stringify(next));
-        if (FirebaseService.isCloudActive()) {
-          try {
-            for (const o of next) {
-              await FirebaseService.saveOrder(o);
-            }
-          } catch (e) {
-            console.error("[Firebase] Error al guardar pedidos:", e);
-          }
-        }
-      };
-
-      const updateCustomers = async (next) => {
-        setCustomers(next);
-        localStorage.setItem("mv_customers", JSON.stringify(next));
-        if (FirebaseService.isCloudActive()) {
-          try {
-            for (const c of next) {
-              await FirebaseService.saveCustomer(c);
-            }
-          } catch (e) {
-            console.error("[Firebase] Error al guardar clientes:", e);
-          }
-        }
-      };
-
+      const updateProducts = (next) => { setProducts(next); localStorage.setItem("mv_products", JSON.stringify(next)); };
+      const updateShippingZones = (next) => { setShippingZones(next); localStorage.setItem("mv_shipping_zones", JSON.stringify(next)); };
+      const updateCoupons = (next) => { setCoupons(next); localStorage.setItem("mv_coupons", JSON.stringify(next)); };
+      const updateConfig = (next) => { setConfig(next); localStorage.setItem("mv_config", JSON.stringify(next)); };
+      const updateOrders = (next) => { setOrders(next); localStorage.setItem("mv_orders", JSON.stringify(next)); };
+      const updateCustomers = (next) => { setCustomers(next); localStorage.setItem("mv_customers", JSON.stringify(next)); };
       const updateFavorites = (next) => { setFavorites(next); localStorage.setItem("mv_favorites", JSON.stringify(next)); };
-
-      if (dbLoading) return html`
-        <div style=${{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: BG, color: TEXT, gap: 16 }}>
-          <div style=${{ width: 44, height: 44, border: "3px solid rgba(200,135,58,0.2)", borderTopColor: ACCENT, borderRadius: "50%", animation: "spin 1s linear infinite" }}></div>
-          <p style=${{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, letterSpacing: 2, color: MUTED }}>Sincronizando con la nube...</p>
-          <style>
-            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-          </style>
-        </div>
-      `;
 
       if (view === "admin") return html`
         <${AdminPanel}
@@ -356,7 +180,6 @@
           products=${products}
           shippingZones=${shippingZones}
           coupons=${coupons}
-          updateCoupons=${updateCoupons}
           config=${config}
           orders=${orders}
           updateOrders=${updateOrders}
@@ -384,40 +207,15 @@
     // AUTH MODAL
     // ─────────────────────────────────────────────
     function AuthModal({ onSuccess, onClose }) {
-      const isCloud = FirebaseService.isCloudActive();
-      const [email, setEmail] = useState("");
       const [pass, setPass] = useState("");
       const [error, setError] = useState(false);
-      const [errorMsg, setErrorMsg] = useState("");
       const [shake, setShake] = useState(false);
 
       const submit = async () => {
-        try {
-          if (isCloud) {
-            if (!email || !pass) {
-              setErrorMsg("Completa todos los campos");
-              setError(true);
-              setShake(true);
-              setTimeout(() => setShake(false), 500);
-              return;
-            }
-            await FirebaseService.login(email, pass);
-            onSuccess();
-          } else {
-            const isValid = await checkPassword(pass);
-            if (isValid) {
-              onSuccess();
-            } else {
-              setErrorMsg("Contraseña incorrecta");
-              setError(true);
-              setShake(true);
-              setTimeout(() => setShake(false), 500);
-            }
-          }
-        } catch (err) {
-          setErrorMsg(err.message || "Error al iniciar sesión");
-          setError(true);
-          setShake(true);
+        const isValid = await checkPassword(pass);
+        if (isValid) { onSuccess(); }
+        else {
+          setError(true); setShake(true);
           setTimeout(() => setShake(false), 500);
         }
       };
@@ -425,55 +223,21 @@
       return html`
         <div style=${s.overlayModal} onClick=${onClose}>
           <div
-            style=${{ ...s.authBox, animation: shake ? "shake 0.4s ease" : "scaleIn 0.25s ease", maxWidth: 400 }}
+            style=${{ ...s.authBox, animation: shake ? "shake 0.4s ease" : "scaleIn 0.25s ease" }}
             onClick=${e => e.stopPropagation()}
             className="modal-in"
           >
             <p style=${{ fontFamily: "'Cinzel Decorative',serif", color: ACCENT, fontSize: 18, letterSpacing: 4, marginBottom: 24 }}>MV ADMIN</p>
-            
-            ${isCloud ? html`
-              <!-- Inputs en modo nube -->
-              <div style=${{ width: "100%", display: "flex", flexDirection: "column", gap: 14, textAlign: "left", marginBottom: 20 }}>
-                <div>
-                  <label style=${s.label}>Correo Electrónico</label>
-                  <input
-                    type="email"
-                    placeholder="admin@ejemplo.com"
-                    value=${email}
-                    onChange=${e => { setEmail(e.target.value); setError(false); }}
-                    style=${s.input}
-                  />
-                </div>
-                <div>
-                  <label style=${s.label}>Contraseña</label>
-                  <input
-                    type="password"
-                    placeholder="••••••••"
-                    value=${pass}
-                    onChange=${e => { setPass(e.target.value); setError(false); }}
-                    onKeyDown=${e => e.key === "Enter" && submit()}
-                    style=${s.input}
-                  />
-                </div>
-              </div>
-            ` : html`
-              <!-- Input único en modo local -->
-              <div style=${{ width: "100%", textAlign: "left", marginBottom: 20 }}>
-                <label style=${s.label}>Contraseña de Administrador (Local)</label>
-                <input
-                  type="password"
-                  placeholder="Contraseña..."
-                  value=${pass}
-                  onChange=${e => { setPass(e.target.value); setError(false); }}
-                  onKeyDown=${e => e.key === "Enter" && submit()}
-                  style=${{ ...s.authInput, borderColor: error ? "#f87171" : BORDER }}
-                  autoFocus=${true}
-                />
-              </div>
-            `}
-
-            ${error && html`<p style=${{ color: "#f87171", fontSize: 12, marginTop: -8, marginBottom: 16 }}>${errorMsg}</p>`}
-            
+            <input
+              type="password"
+              placeholder="Contraseña..."
+              value=${pass}
+              onChange=${e => { setPass(e.target.value); setError(false); }}
+              onKeyDown=${e => e.key === "Enter" && submit()}
+              style=${{ ...s.authInput, borderColor: error ? "#f87171" : BORDER }}
+              autoFocus=${true}
+            />
+            ${error && html`<p style=${{ color: "#f87171", fontSize: 12, marginTop: 8 }}>Contraseña incorrecta</p>`}
             <button style=${s.goldBtn} onClick=${submit}>ENTRAR</button>
             <button style=${s.ghostBtnSm} onClick=${onClose}>Cancelar</button>
           </div>
@@ -586,11 +350,10 @@
     // TIENDA / CATÁLOGO / COMPONENTES
     // ─────────────────────────────────────────────
     function Shop({
-      products, shippingZones, coupons, updateCoupons, config, orders, updateOrders, customers, updateCustomers, favorites, updateFavorites, onOpenAuth,
+      products, shippingZones, coupons, config, orders, updateOrders, customers, updateCustomers, favorites, updateFavorites, onOpenAuth,
       view, setView, selectedProduct, setSelectedProduct, children
     }) {
       const [activeCategory, setActiveCategory] = useState("Todos");
-      const [logoLoaded, setLogoLoaded] = useState(false);
       const [cart, setCart] = useState(() => { try { return JSON.parse(localStorage.getItem("mv_cart") || "[]"); } catch { return []; } });
       const [cartOpen, setCartOpen] = useState(false);
       const [selectedColors, setSelectedColors] = useState({});
@@ -714,22 +477,10 @@
         setCheckoutOpen(false);
 
         // WA checkout message
-        const activeWaNumber = config?.waNumber || "5491100000000";
-        const defaultTemplate = "¡Hola! 👋 Quiero hacer el siguiente pedido:\n\n{details}\n\n📍 Zona de envío: {shipping}\n*Total a abonar: {total}*\n\nCliente: {name}\nTeléfono: {phone}";
-        const rawTemplate = config?.waTemplate || defaultTemplate;
-        
-        const detailsText = cart.map(i => "• " + i.name + " (" + i.color + ") x" + i.qty + " — " + fmt(i.price * i.qty)).join("\n");
-        const shippingText = selectedZone ? (selectedZone.price === -1 ? selectedZone.name + " (A consultar)" : selectedZone.name + " (" + (selectedZone.price === 0 ? "Gratis" : fmt(selectedZone.price)) + ")") : "No especificado";
-        const couponText = appliedCoupon ? "\nCupón aplicado: " + appliedCoupon.code + " (-" + fmt(discount) + ")" : "";
-        
-        const formattedMsg = rawTemplate
-          .replace("{details}", detailsText)
-          .replace("{shipping}", shippingText + couponText)
-          .replace("{total}", fmt(finalTotal))
-          .replace("{name}", name)
-          .replace("{phone}", phone);
-        
-        const msg = encodeURIComponent(formattedMsg);
+        const lines = cart.map(i => "• " + i.name + " (" + i.color + ") x" + i.qty + " — " + fmt(i.price * i.qty)).join("%0A");
+        const shippingStr = selectedZone ? (selectedZone.price === -1 ? selectedZone.name + " (A consultar)" : selectedZone.name + " (" + (selectedZone.price === 0 ? "Gratis" : fmt(selectedZone.price)) + ")") : "No especificado";
+        const couponStr = appliedCoupon ? "%0ACupón aplicado: " + appliedCoupon.code + " (-" + fmt(discount) + ")" : "";
+        const msg = "¡Hola! 👋 Quiero hacer el siguiente pedido:%0A%0A" + lines + "%0A%0A📍 Zona de envío: " + shippingStr + couponStr + "%0A*Total a abonar: " + fmt(finalTotal) + "*%0A%0ACliente: " + name + "%0ATeléfono: " + phone;
         
         // Save order globally
         const newOrder = {
@@ -779,7 +530,7 @@
           updateCoupons(coupons.map(c => c.code === appliedCoupon.code ? { ...c, usedCount: c.usedCount + 1 } : c));
         }
 
-        window.open("https://wa.me/" + activeWaNumber + "?text=" + msg, "_blank");
+        window.open("https://wa.me/" + WA_NUMBER + "?text=" + msg, "_blank");
         setCart([]);
         setCartOpen(false);
       };
@@ -826,425 +577,341 @@
         setShowFavoritesOnly(false);
       };
 
-      const removeFromCart = (key) => setCart(prev => prev.filter(i => i.key !== key));
-
-      // ─────────────────────────────────────────────
-      // CONDITIONAL RENDER PIECES (NO NESTED TEMPLATE LITERALS!)
-      // ─────────────────────────────────────────────
-      
-      // 1. Promotional Banner
-      const bannerHtml = (config.bannerActive && config.bannerText && !bannerClosed) ? html`
-        <div style=${{ background: config.bannerBg || ACCENT, color: "#000", height: 40, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 1001, padding: "0 40px", fontSize: 13, fontWeight: 700, letterSpacing: 1, fontFamily: "sans-serif" }}>
-          <span>${config.bannerText}</span>
-          <button style=${{ position: "absolute", right: 16, background: "none", border: "none", color: "#000", fontSize: 16, fontWeight: 700, cursor: "pointer" }} onClick=${() => { setBannerClosed(true); sessionStorage.setItem("mv_banner_closed", "true"); }}>✕</button>
-        </div>
-      ` : "";
-
-      // 2. Hero Header
-      const heroHtml = (view === "shop") ? html`
-        <header style=${{ ...s.hero, opacity: heroVisible ? 1 : 0, transform: heroVisible ? "translateY(0)" : "translateY(24px)" }}>
-          <div style=${s.heroGrain} />
-          <div style=${{ position: "relative", zIndex: 2, maxWidth: 600 }}>
-            <p style=${{ fontSize: 12, letterSpacing: 4, color: ACCENT, textTransform: "uppercase", marginBottom: 20, fontFamily: "sans-serif" }}>— Zona Oeste, Merlo —</p>
-            <h1 style=${{ fontSize: "clamp(48px,8vw,88px)", fontWeight: 300, lineHeight: 1.05, margin: "0 0 24px", color: TEXT }}>
-              Cuero que<br /><em style=${{ color: ACCENT }}>dura para siempre</em>
-            </h1>
-            <p style=${{ fontSize: 16, color: MUTED, lineHeight: 1.7, marginBottom: 36, fontFamily: "sans-serif", fontWeight: 300 }}>
-              Bolsos, billeteras y accesorios hechos a mano.<br />Envíos a domicilio · Efectivo y transferencia
-            </p>
-            <button className="cta-btn" style=${s.goldBtn} onClick=${() => document.getElementById("productos").scrollIntoView({ behavior: "smooth" })}>
-              VER PRODUCTOS
-            </button>
-          </div>
-          <div style=${{ position: "absolute", right: -100, top: "50%", transform: "translateY(-50%)", width: 500, height: 500, borderRadius: "50%", border: "1px solid rgba(200,135,58,0.1)" }} />
-        </header>
-      ` : "";
-
-      // 3. Search Bar Clear button
-      const searchTermClearHtml = searchTerm ? html`
-        <button style=${{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }} onClick=${() => setSearchTerm("")}>✕</button>
-      ` : "";
-
-      // 4. Categories list map
-      const categoriesHtml = CATEGORIES.map(c => html`
-        <button key=${c} style=${{ ...s.catBtn, ...(!showFavoritesOnly && activeCategory === c ? s.catBtnActive : {}) }} onClick=${() => { setShowFavoritesOnly(false); setActiveCategory(c); }} className="cat-btn">${c}</button>
-      `);
-
-      // 5. Favorites Count Badge
-      const favoritesCountHtml = favorites.length > 0 ? html`(${favorites.length})` : "";
-
-      // 6. Clean Filters
-      const cleanFiltersHtml = (searchTerm || activeCategory !== "Todos" || showFavoritesOnly || priceFilter[0] > 0 || priceFilter[1] < maxPossiblePrice) ? html`
-        <button onClick=${resetFilters} style=${{ background: "none", border: "none", color: ACCENT, textDecoration: "underline", cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "sans-serif" }}>Limpiar filtros</button>
-      ` : "";
-
-      // 7. Product cards map
-      const productCardsHtml = filtered.map((p, i) => html`
-        <${ShopProductCard}
-          key=${p.id}
-          product=${p}
-          index=${i}
-          isFavorite=${favorites.includes(p.id)}
-          onToggleFavorite=${(e) => toggleFavorite(p.id, e)}
-          selectedColors=${selectedColors}
-          setSelectedColors=${setSelectedColors}
-          addedId=${addedId}
-          onAddToCart=${() => addToCart(p)}
-          onSelectDetail=${() => { setSelectedProduct(p); setView("product"); }}
-        />
-      `);
-
-      // 8. No Matches Found
-      const noMatchesHtml = (filtered.length === 0) ? html`
-        <div style=${{ textAlign: "center", padding: "80px 24px", color: MUTED }}>
-          <span style=${{ fontSize: 48, display: "block", marginBottom: 16 }}>🔍</span>
-          <h3 style=${{ fontSize: 20, fontFamily: "'Cormorant Garamond',serif", color: TEXT }}>No encontramos coincidencias</h3>
-          <p style=${{ fontSize: 14, fontFamily: "sans-serif", marginTop: 8, marginBottom: 20 }}>Intentá modificando los filtros o la búsqueda.</p>
-          <button style=${s.goldBtn} onClick=${resetFilters} style=${{ maxWidth: 200, margin: "0 auto" }}>Limpiar filtros</button>
-        </div>
-      ` : "";
-
-      // 9. Main catalog container
-      const mainContainerHtml = (view === "shop") ? html`
-        <section id="productos" style=${{ maxWidth: 1200, margin: "0 auto", padding: "60px 24px" }}>
-          <h2 style=${{ fontSize: "clamp(28px,4vw,44px)", fontWeight: 300, marginBottom: 24 }}>Nuestros Productos</h2>
-          
-          <!-- BUSCADOR & FILTROS BARRA -->
-          <div style=${{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 36, padding: 20, background: SURFACE, border: "1px solid " + BORDER, borderRadius: 12 }}>
-            <div style=${{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
-              
-              <!-- BUSCADOR -->
-              <div style=${{ display: "flex", alignItems: "center", gap: 10, background: SURFACE2, border: "1px solid " + BORDER, borderRadius: 8, padding: "8px 14px", flex: 1, minWidth: 260 }}>
-                <span style=${{ color: MUTED }}>🔍</span>
-                <input placeholder="Buscar productos..." value=${searchTerm} onChange=${e => setSearchTerm(e.target.value)} style=${{ background: "none", border: "none", outline: "none", color: TEXT, fontSize: 14, fontFamily: "sans-serif", width: "100%" }} />
-                ${searchTermClearHtml}
-              </div>
-
-              <!-- ORDENAMIENTO -->
-              <div style=${{ display: "flex", alignItems: "center", gap: 8 }}>
-                <label style=${{ ...s.label, marginBottom: 0 }}>ORDENAR BY</label>
-                <select value=${sortOption} onChange=${e => setSortOption(e.target.value)} style=${{ ...s.input, width: 180, padding: "8px 12px" }}>
-                  <option value="featured">Destacados primero</option>
-                  <option value="priceAsc">Menor precio</option>
-                  <option value="priceDesc">Mayor precio</option>
-                  <option value="newest">Más nuevos</option>
-                </select>
-              </div>
-
-              <!-- SLIDER DOBLE DE PRECIO -->
-              <div style=${{ display: "flex", flexDirection: "column", gap: 6, minWidth: 200, width: "100%", maxWidth: 300 }}>
-                <div style=${{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <label style=${s.label}>PRECIO</label>
-                  <span style=${{ fontSize: 12, color: ACCENT, fontFamily: "sans-serif", fontWeight: 700 }}>${fmt(priceFilter[0])} — ${fmt(priceFilter[1])}</span>
-                </div>
-                <div style=${{ position: "relative", height: 16, display: "flex", alignItems: "center", marginTop: 4 }}>
-                  <div style=${{ position: "absolute", left: 0, right: 0, height: 4, background: "rgba(200,135,58,0.1)", borderRadius: 2 }} />
-                  <input
-                    type="range"
-                    min="0"
-                    max=${maxPossiblePrice}
-                    value=${priceFilter[0]}
-                    onChange=${e => setPriceFilter([Math.min(Number(e.target.value), priceFilter[1]), priceFilter[1]])}
-                    className="dual-slider"
-                  />
-                  <input
-                    type="range"
-                    min="0"
-                    max=${maxPossiblePrice}
-                    value=${priceFilter[1]}
-                    onChange=${e => setPriceFilter([priceFilter[0], Math.max(Number(e.target.value), priceFilter[0])])}
-                    className="dual-slider"
-                  />
-                </div>
-              </div>
-
-            </div>
-
-            <!-- CATEGORIES TABS + FAVORITOS TAB -->
-            <div style=${{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between", borderTop: "1px solid rgba(200,135,58,0.08)", paddingTop: 16 }}>
-              <div style=${{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                ${categoriesHtml}
-                <button style=${{ ...s.catBtn, ...(showFavoritesOnly ? s.catBtnActive : {}) }} onClick=${() => setShowFavoritesOnly(true)} className="cat-btn">
-                  ❤ Guardados ${favoritesCountHtml}
-                </button>
-              </div>
-              
-              <!-- COUNTER & CLEAN FILTERS -->
-              <div style=${{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style=${{ fontSize: 13, color: MUTED, fontFamily: "sans-serif" }}>Mostrando ${filtered.length} de ${visibleProducts.length} productos</span>
-                ${cleanFiltersHtml}
-              </div>
-            </div>
-          </div>
-
-          <!-- PRODUCT GRID -->
-          <div style=${{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 24 }}>
-            ${productCardsHtml}
-          </div>
-
-          ${noMatchesHtml}
-        </section>
-      ` : "";
-
-      // 10. Product detail view
-      const productDetailHtml = (view === "product" && selectedProduct) ? html`
-        <${ProductDetail}
-          product=${selectedProduct}
-          allProducts=${products}
-          onBack=${() => setView("shop")}
-          onAddToCart=${(color, qty) => addToCart(selectedProduct, color, qty)}
-          isFavorite=${favorites.includes(selectedProduct.id)}
-          onToggleFavorite=${(e) => toggleFavorite(selectedProduct.id, e)}
-          onSelectDetail=${(p) => setSelectedProduct(p)}
-        />
-      ` : "";
-
-      // 11. Promotional highlights bottom strip
-      const stripHtml = (view === "shop") ? html`
-        <div style=${{ borderTop: "1px solid " + BORDER, borderBottom: "1px solid " + BORDER, background: SURFACE, padding: "30px 24px", marginTop: 40 }}>
-          <div style=${{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 24, textAlign: "center" }}>
-            <div>
-              <span style=${{ fontSize: 24, display: "block", marginBottom: 8 }}>💼</span>
-              <h4 style=${{ fontSize: 14, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>100% CUERO VACUNO</h4>
-              <p style=${{ fontSize: 12, color: MUTED, fontFamily: "sans-serif", margin: 0 }}>Garantía de calidad y durabilidad real.</p>
-            </div>
-            <div>
-              <span style=${{ fontSize: 24, display: "block", marginBottom: 8 }}>🙌</span>
-              <h4 style=${{ fontSize: 14, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>HECHO A MANO</h4>
-              <p style=${{ fontSize: 12, color: MUTED, fontFamily: "sans-serif", margin: 0 }}>Detalles artesanales únicos en cada pieza.</p>
-            </div>
-            <div>
-              <span style=${{ fontSize: 24, display: "block", marginBottom: 8 }}>💳</span>
-              <h4 style=${{ fontSize: 14, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>PAGOS FLEXIBLES</h4>
-              <p style=${{ fontSize: 12, color: MUTED, fontFamily: "sans-serif", margin: 0 }}>Efectivo, transferencia y opciones de envío.</p>
-            </div>
-          </div>
-        </div>
-      ` : "";
-
-      // 12. Cart Header badge
-      const cartBadgeHtml = cartCount > 0 ? html`<span style=${s.cartBadge}>${cartCount}</span>` : "";
-
-      // 13. Mapped Cart items
-      const cartItemsHtml = cart.map(item => {
-        const miniPhotoHtml = (item.images && item.images.length > 0)
-          ? html`<img src=${item.images[0]} style=${{ width: 44, height: 44, objectFit: "cover", borderRadius: 4, background: "#f8f8f8" }} />`
-          : html`<span style=${{ fontSize: 32, flexShrink: 0 }}>${item.emoji}</span>`;
-
-        return html`
-          <div key=${item.key} style=${{ display: "flex", alignItems: "center", gap: 12, padding: "14px 24px", borderBottom: "1px solid rgba(200,135,58,0.08)" }}>
-            ${miniPhotoHtml}
-            <div style=${{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style=${{ fontSize: 15, fontWeight: 500 }}>${item.name}</span>
-              <span style=${{ fontSize: 11, color: MUTED, fontFamily: "sans-serif" }}>${item.color}</span>
-              <span style=${{ fontSize: 14, color: ACCENT, fontFamily: "sans-serif" }}>${fmt(item.price)}</span>
-            </div>
-            <div style=${{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button style=${s.qtyBtn} onClick=${() => updateQty(item.key, -1)}>−</button>
-              <span style=${{ fontSize: 15, minWidth: 20, textAlign: "center", fontFamily: "sans-serif" }}>${item.qty}</span>
-              <button style=${s.qtyBtn} onClick=${() => updateQty(item.key, 1)}>+</button>
-            </div>
-            <button style=${{ background: "none", border: "none", color: "#4a3828", fontSize: 14, cursor: "pointer" }} onClick=${() => removeFromCart(item.key)}>✕</button>
-          </div>
-        `;
-      });
-
-      // 14. Shipping Calc details
-      const shippingCalcDetailsHtml = selectedZone ? html`
-        <p style=${{ fontSize: 12, fontFamily: "sans-serif" }}>
-          ${selectedZone.price === 0 ? html`<span style=${{ color: "#4ade80", fontWeight: 700 }}>✓ Envío gratis</span>` : selectedZone.price === -1 ? html`<span style=${{ color: MUTED }}>Te informamos el costo por WhatsApp</span>` : html`Costo: <span style=${{ color: ACCENT, fontWeight: 700 }}>${fmt(selectedZone.price)}</span>`}
-        </p>
-      ` : "";
-
-      // 15. Shipping zones option elements
-      const shippingZonesOptionsHtml = activeShippingZones.map(z => html`
-        <option key=${z.id} value=${z.id}>${z.name} ${z.price === 0 ? "(Gratis)" : z.price === -1 ? "(Consultar)" : "(" + fmt(z.price) + ")"}</option>
-      `);
-
-      // 16. Expanded Shipping selector
-      const shippingCalcExpandedHtml = shippingCalcExpanded ? html`
-        <div style=${{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-          <select value=${selectedZone ? selectedZone.id : ""} onChange=${e => setSelectedZone(activeShippingZones.find(z => z.id === e.target.value) || null)} style=${s.input}>
-            ${shippingZonesOptionsHtml}
-          </select>
-          ${shippingCalcDetailsHtml}
-        </div>
-      ` : "";
-
-      // 17. Coupon error & success messages
-      const couponErrorHtml = couponError ? html`<p style=${{ color: "#f87171", fontSize: 12, marginTop: 6, fontFamily: "sans-serif" }}>${couponError}</p>` : "";
-      const couponSuccessHtml = couponSuccess ? html`<p style=${{ color: "#4ade80", fontSize: 12, marginTop: 6, fontFamily: "sans-serif" }}>${couponSuccess}</p>` : "";
-
-      // 18. Coupon Breakdown row
-      const appliedCouponHtml = appliedCoupon ? html`
-        <div style=${{ display: "flex", justifyContent: "space-between", color: "#4ade80" }}>
-          <span>Descuento (${appliedCoupon.code})</span>
-          <span>-${fmt(discount)}</span>
-        </div>
-      ` : "";
-
-      // 19. Main Cart Drawer Panel contents
-      const cartDrawerBodyHtml = (cart.length === 0) ? html`
-        <div style=${{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
-          <span style=${{ fontSize: 48 }}>🛒</span>
-          <p style=${{ color: MUTED, fontFamily: "sans-serif" }}>Tu carrito está vacío</p>
-        </div>
-      ` : html`
-        <div style=${{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
-          ${cartItemsHtml}
-        </div>
-        <div style=${{ padding: "20px 24px", borderTop: "1px solid " + BORDER, display: "flex", flexDirection: "column", gap: 14, background: SURFACE }}>
-          <div style=${{ borderBottom: "1px solid rgba(200,135,58,0.08)", paddingBottom: 12 }}>
-            <button onClick=${() => setShippingCalcExpanded(!shippingCalcExpanded)} style=${{ background: "none", border: "none", color: ACCENT, width: "100%", textAlign: "left", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "sans-serif" }}>
-              <span>📍 Calcular envío</span>
-              <span>${shippingCalcExpanded ? "▲" : "▼"}</span>
-            </button>
-            ${shippingCalcExpandedHtml}
-          </div>
-          <div style=${{ borderBottom: "1px solid rgba(200,135,58,0.08)", paddingBottom: 12 }}>
-            <div style=${{ display: "flex", gap: 8 }}>
-              <input placeholder="¿Tenés un cupón?" value=${couponInput} onChange=${e => setCouponInput(e.target.value)} style=${{ ...s.input, flex: 1, padding: "8px 12px" }} />
-              <button onClick=${applyCoupon} style=${{ background: ACCENT, color: "#000", border: "none", borderRadius: 8, padding: "0 16px", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "sans-serif" }}>Aplicar</button>
-            </div>
-            ${couponErrorHtml}
-            ${couponSuccessHtml}
-          </div>
-          <div style=${{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, fontFamily: "sans-serif" }}>
-            <div style=${{ display: "flex", justifyContent: "space-between" }}>
-              <span style=${{ color: MUTED }}>Subtotal</span>
-              <span>${fmt(subtotal)}</span>
-            </div>
-            ${appliedCouponHtml}
-            <div style=${{ display: "flex", justifyContent: "space-between" }}>
-              <span style=${{ color: MUTED }}>Envío</span>
-              <span>${selectedZone ? (selectedZone.price === 0 ? "Gratis" : selectedZone.price === -1 ? "A consultar" : fmt(selectedZone.price)) : "$0"}</span>
-            </div>
-            <div style=${{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: "1px solid rgba(200,135,58,0.15)", paddingTop: 10, marginTop: 6 }}>
-              <span style=${{ fontSize: 14, fontWeight: 700, textTransform: "uppercase" }}>Total</span>
-              <span style=${{ fontSize: 24, fontWeight: 700, color: ACCENT }}>${fmt(finalTotal)}</span>
-            </div>
-          </div>
-          <button className="wa-btn" style=${{ background: "#25D366", color: "#fff", border: "none", borderRadius: 8, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "sans-serif" }} onClick=${handlePreCheckout}>
-            💬 Pedir por WhatsApp
-          </button>
-          <p style=${{ fontSize: 11, color: "#4a3828", textAlign: "center", lineHeight: 1.5, fontFamily: "sans-serif", margin: 0 }}>Te contactaremos para confirmar disponibilidad y coordinar el pago.</p>
-        </div>
-      `;
-
-      // 20. Drawer Overlay
-      const cartDrawerHtml = cartOpen ? html`
-        <div style=${s.overlayDrawer} onClick=${() => setCartOpen(false)}>
-          <div style=${s.cartDrawer} onClick=${e => e.stopPropagation()}>
-            <div style=${{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid " + BORDER }}>
-              <h3 style=${{ fontSize: 20, margin: 0 }}>Mi Carrito</h3>
-              <button style=${{ background: "none", border: "none", color: TEXT, fontSize: 24, cursor: "pointer" }} onClick=${() => setCartOpen(false)}>✕</button>
-            </div>
-            ${cartDrawerBodyHtml}
-          </div>
-        </div>
-      ` : "";
-
-      // 21. Floating Cart FAB
-      const cartFabHtml = (cartCount > 0 && !cartOpen) ? html`
-        <button style=${s.fab} onClick=${() => setCartOpen(true)} className="fab-btn">
-          🛒 <span style=${s.fabBadge}>${cartCount}</span>
-        </button>
-      ` : "";
-
-      // 22. Recovery Toast dialog
-      const cartRecoveryToastHtml = showRecoveryToast ? html`
-        <div style=${s.recoveryToast}>
-          <div style=${{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
-            <span style=${{ fontSize: 14, fontWeight: 700 }}>🛒 ¿Querés continuar tu compra?</span>
-            <span style=${{ fontSize: 12, color: MUTED, fontFamily: "sans-serif" }}>Recuperamos los productos que dejaste guardados.</span>
-          </div>
-          <div style=${{ display: "flex", gap: 10 }}>
-            <button style=${{ ...s.goldBtn, padding: "6px 12px", fontSize: 12, width: "auto" }} onClick=${() => { setShowRecoveryToast(false); setCartOpen(true); }}>Ver Carrito</button>
-            <button style=${{ ...s.ghostBtnSm, padding: "6px 12px", fontSize: 12 }} onClick=${() => setShowRecoveryToast(false)}>Descartar</button>
-          </div>
-        </div>
-      ` : "";
-
-      // 23. checkout info Modal
-      const checkoutModalHtml = checkoutOpen ? html`
-        <${CheckoutModal}
-          initialData=${clientData}
-          onClose=${() => setCheckoutOpen(false)}
-          onConfirm=${processCheckout}
-        />
-      ` : "";
-
-      // 24. Product Photos Ligthbox Zoom
-      const lightboxModalHtml = lightboxState ? html`
-        <${LightboxModal}
-          images=${lightboxState.images}
-          initialIndex=${lightboxState.index}
-          onClose=${() => setLightboxState(null)}
-        />
-      ` : "";
-
       return html`
-        <div style=${{ background: BG, color: TEXT, minHeight: "100vh", position: "relative" }}>
+        <div style=${{ fontFamily: "'Cormorant Garamond',Georgia,serif", background: BG, color: TEXT, minHeight: "100vh", overflowX: "hidden" }}>
+          
           <!-- BANNER PROMOCIONAL -->
-          ${bannerHtml}
+          ${config.bannerActive && config.bannerText && !bannerClosed && html`
+            <div style=${{ background: config.bannerBg || ACCENT, color: "#000", height: 40, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 1001, padding: "0 40px", fontSize: 13, fontWeight: 700, letterSpacing: 1, fontFamily: "sans-serif" }}>
+              <span>${config.bannerText}</span>
+              <button style=${{ position: "absolute", right: 16, background: "none", border: "none", color: "#000", fontSize: 16, fontWeight: 700, cursor: "pointer" }} onClick=${() => { setBannerClosed(true); sessionStorage.setItem("mv_banner_closed", "true"); }}>✕</button>
+            </div>
+          `}
 
           <!-- NAV -->
           <nav style=${s.nav}>
             <div style=${s.navInner}>
-              <div style=${{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }} onClick=${() => setView("shop")}>
+              <div style=${s.navLogo} onClick=${() => setView("shop")} style=${{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
                 <!-- LOGO INSTITUCIONAL -->
-                <img src="logo.png" style=${s.logoImg} alt="Logo MV" onLoad=${() => setLogoLoaded(true)} onError=${e => { e.target.style.display = "none"; setLogoLoaded(false); }} />
-                ${!logoLoaded && html`<span style=${s.logoM}>MV</span>`}
+                <img src="logo.png" style=${s.logoImg} alt="Logo MV" onError=${e => e.target.style.display = "none"} />
+                <span style=${s.logoM}>MV</span>
                 <span style=${s.logoText}>MARROQUINERÍA</span>
               </div>
               <div style=${{ display: "flex", alignItems: "center", gap: 16 }}>
                 <span style=${{ fontSize: 11, color: MUTED, letterSpacing: 2 }} className="nav-subtitle">Artesanal · Calidad · Tradición</span>
                 <button style=${s.cartBtn} onClick=${() => setCartOpen(true)} className="cart-btn">
-                  🛒 ${cartBadgeHtml}
+                  🛒 ${cartCount > 0 && html`<span style=${s.cartBadge}>${cartCount}</span>`}
                 </button>
               </div>
             </div>
           </nav>
 
           <!-- HERO -->
-          ${heroHtml}
+          ${view === "shop" && html`
+            <header style=${{ ...s.hero, opacity: heroVisible ? 1 : 0, transform: heroVisible ? "translateY(0)" : "translateY(24px)" }}>
+              <div style=${s.heroGrain} />
+              <div style=${{ position: "relative", zIndex: 2, maxWidth: 600 }}>
+                <p style=${{ fontSize: 12, letterSpacing: 4, color: ACCENT, textTransform: "uppercase", marginBottom: 20, fontFamily: "sans-serif" }}>— Zona Oeste, Merlo —</p>
+                <h1 style=${{ fontSize: "clamp(48px,8vw,88px)", fontWeight: 300, lineHeight: 1.05, margin: "0 0 24px", color: TEXT }}>
+                  Cuero que<br /><em style=${{ color: ACCENT }}>dura para siempre</em>
+                </h1>
+                <p style=${{ fontSize: 16, color: MUTED, lineHeight: 1.7, marginBottom: 36, fontFamily: "sans-serif", fontWeight: 300 }}>
+                  Bolsos, billeteras y accesorios hechos a mano.<br />Envíos a domicilio · Efectivo y transferencia
+                </p>
+                <button className="cta-btn" style=${s.goldBtn} onClick=${() => document.getElementById("productos").scrollIntoView({ behavior: "smooth" })}>
+                  VER PRODUCTOS
+                </button>
+              </div>
+              <div style=${{ position: "absolute", right: -100, top: "50%", transform: "translateY(-50%)", width: 500, height: 500, borderRadius: "50%", border: "1px solid rgba(200,135,58,0.1)" }} />
+            </header>
+          `}
 
           <!-- MAIN CONTAINER -->
-          ${mainContainerHtml}
+          ${view === "shop" && html`
+            <section id="productos" style=${{ maxWidth: 1200, margin: "0 auto", padding: "60px 24px" }}>
+              <h2 style=${{ fontSize: "clamp(28px,4vw,44px)", fontWeight: 300, marginBottom: 24 }}>Nuestros Productos</h2>
+              
+              <!-- BUSCADOR & FILTROS BARRA -->
+              <div style=${{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 36, padding: 20, background: SURFACE, border: "1px solid " + BORDER, borderRadius: 12 }}>
+                <div style=${{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
+                  
+                  <!-- BUSCADOR -->
+                  <div style=${{ display: "flex", alignItems: "center", gap: 10, background: SURFACE2, border: "1px solid " + BORDER, borderRadius: 8, padding: "8px 14px", flex: 1, minWidth: 260 }}>
+                    <span style=${{ color: MUTED }}>🔍</span>
+                    <input placeholder="Buscar productos..." value=${searchTerm} onChange=${e => setSearchTerm(e.target.value)} style=${{ background: "none", border: "none", outline: "none", color: TEXT, fontSize: 14, fontFamily: "sans-serif", width: "100%" }} />
+                    ${searchTerm && html`<button style=${{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 16 }} onClick=${() => setSearchTerm("")}>✕</button>`}
+                  </div>
+
+                  <!-- ORDENAMIENTO -->
+                  <div style=${{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <label style=${{ ...s.label, marginBottom: 0 }}>ORDENAR BY</label>
+                    <select value=${sortOption} onChange=${e => setSortOption(e.target.value)} style=${{ ...s.input, width: 180, padding: "8px 12px" }}>
+                      <option value="featured">Destacados primero</option>
+                      <option value="priceAsc">Menor precio</option>
+                      <option value="priceDesc">Mayor precio</option>
+                      <option value="newest">Más nuevos</option>
+                    </select>
+                  </div>
+
+                  <!-- SLIDER DOBLE DE PRECIO -->
+                  <div style=${{ display: "flex", flexDirection: "column", gap: 6, minWidth: 200, width: "100%", maxWidth: 300 }}>
+                    <div style=${{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                      <label style=${s.label}>PRECIO</label>
+                      <span style=${{ fontSize: 12, color: ACCENT, fontFamily: "sans-serif", fontWeight: 700 }}>${fmt(priceFilter[0])} — ${fmt(priceFilter[1])}</span>
+                    </div>
+                    <div style=${{ position: "relative", height: 16, display: "flex", alignItems: "center", marginTop: 4 }}>
+                      <div style=${{ position: "absolute", left: 0, right: 0, height: 4, background: "rgba(200,135,58,0.1)", borderRadius: 2 }} />
+                      <input
+                        type="range"
+                        min="0"
+                        max=${maxPossiblePrice}
+                        value=${priceFilter[0]}
+                        onChange=${e => setPriceFilter([Math.min(Number(e.target.value), priceFilter[1]), priceFilter[1]])}
+                        className="dual-slider"
+                      />
+                      <input
+                        type="range"
+                        min="0"
+                        max=${maxPossiblePrice}
+                        value=${priceFilter[1]}
+                        onChange=${e => setPriceFilter([priceFilter[0], Math.max(Number(e.target.value), priceFilter[0])])}
+                        className="dual-slider"
+                      />
+                    </div>
+                  </div>
+
+                </div>
+
+                <!-- CATEGORIES TABS + FAVORITOS TAB -->
+                <div style=${{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between", borderTop: "1px solid rgba(200,135,58,0.08)", paddingTop: 16 }}>
+                  <div style=${{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    ${CATEGORIES.map(c => html`
+                      <button key=${c} style=${{ ...s.catBtn, ...(!showFavoritesOnly && activeCategory === c ? s.catBtnActive : {}) }} onClick=${() => { setShowFavoritesOnly(false); setActiveCategory(c); }} className="cat-btn">${c}</button>
+                    `)}
+                    <button style=${{ ...s.catBtn, ...(showFavoritesOnly ? s.catBtnActive : {}) }} onClick=${() => setShowFavoritesOnly(true)} className="cat-btn">
+                      ❤ Guardados ${favorites.length > 0 && html`(${favorites.length})`}
+                    </button>
+                  </div>
+                  
+                  <!-- COUNTER & CLEAN FILTERS -->
+                  <div style=${{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style=${{ fontSize: 13, color: MUTED, fontFamily: "sans-serif" }}>Mostrando ${filtered.length} de ${visibleProducts.length} productos</span>
+                    {(searchTerm || activeCategory !== "Todos" || showFavoritesOnly || priceFilter[0] > 0 || priceFilter[1] < maxPossiblePrice) && html`
+                      <button onClick=${resetFilters} style=${{ background: "none", border: "none", color: ACCENT, textDecoration: "underline", cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: "sans-serif" }}>Limpiar filtros</button>
+                    `}
+                  </div>
+                </div>
+              </div>
+
+              <!-- PRODUCT GRID -->
+              <div style=${{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 24 }}>
+                ${filtered.map((p, i) => html`
+                  <${ShopProductCard}
+                    key=${p.id}
+                    product=${p}
+                    index=${i}
+                    isFavorite=${favorites.includes(p.id)}
+                    onToggleFavorite=${(e) => toggleFavorite(p.id, e)}
+                    selectedColors=${selectedColors}
+                    setSelectedColors=${setSelectedColors}
+                    addedId=${addedId}
+                    onAddToCart=${() => addToCart(p)}
+                    onSelectDetail=${() => { setSelectedProduct(p); setView("product"); }}
+                  />
+                `)}
+              </div>
+
+              ${filtered.length === 0 && html`
+                <div style=${{ textAlign: "center", padding: "80px 24px", color: MUTED }}>
+                  <span style=${{ fontSize: 48, display: "block", marginBottom: 16 }}>🔍</span>
+                  <h3 style=${{ fontSize: 20, fontFamily: "'Cormorant Garamond',serif", color: TEXT }}>No encontramos coincidencias</h3>
+                  <p style=${{ fontSize: 14, fontFamily: "sans-serif", marginTop: 8, marginBottom: 20 }}>Intentá modificando los filtros o la búsqueda.</p>
+                  <button style=${s.goldBtn} onClick=${resetFilters} style=${{ maxWidth: 200, margin: "0 auto" }}>Limpiar filtros</button>
+                </div>
+              `}
+            </section>
+          `}
 
           <!-- PRODUCT DETAIL VIEW -->
-          ${productDetailHtml}
+          ${view === "product" && selectedProduct && html`
+            <${ProductDetail}
+              product=${selectedProduct}
+              allProducts=${products}
+              onBack=${() => setView("shop")}
+              onAddToCart=${(color, qty) => addToCart(selectedProduct, color, qty)}
+              isFavorite=${favorites.includes(selectedProduct.id)}
+              onToggleFavorite=${(e) => toggleFavorite(selectedProduct.id, e)}
+              onSelectDetail=${(p) => setSelectedProduct(p)}
+              onOpenLightbox=${(images, idx) => setLightboxState({ images, index: idx })}
+            />
+          `}
 
           <!-- STRIP -->
-          ${stripHtml}
+          <div style=${{ borderTop: "1px solid " + BORDER, borderBottom: "1px solid " + BORDER, background: "rgba(200,135,58,0.04)", display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "0 40px", padding: "18px 24px" }}>
+            ${["🚚 Envíos a domicilio", "💳 Efectivo y transferencia", "📍 Zona Oeste, Merlo", "✂️ Hecho a mano"].map(t => html`
+              <span key=${t} style=${{ fontSize: 13, color: MUTED, letterSpacing: 1, fontFamily: "sans-serif" }}>${t}</span>
+            `)}
+          </div>
 
           <!-- FOOTER -->
-          <footer style=${s.footer}>
-            <span style=${{ fontSize: 15, fontWeight: 700, letterSpacing: 2 }}>MV MARROQUINERÍA</span>
-            <span style=${{ fontSize: 11, color: MUTED, fontFamily: "sans-serif" }}>Artesanal · Calidad · Tradición</span>
-            <a href="https://www.instagram.com/mvmarroquineria.accesorios" target="_blank" rel="noreferrer" style=${s.footerInsta} className="footer-insta">📸 @mvmarroquineria.accesorios</a>
-            <button onClick=${onOpenAuth} style=${s.privateAccessBtn} className="private-access-btn">acceso privado</button>
+          <footer style=${{ textAlign: "center", padding: "48px 24px", display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+            <span style=${{ fontSize: 20, letterSpacing: 6, color: ACCENT, fontFamily: "'Cinzel Decorative',serif" }}>MV MARROQUINERÍA</span>
+            <span style=${{ fontSize: 12, color: "#4a3828", letterSpacing: 3 }}>Artesanal · Calidad · Tradición</span>
+            <a href="https://www.instagram.com/mvmarroquineria.accesorios" target="_blank" rel="noreferrer" style=${{ fontSize: 13, color: MUTED, textDecoration: "none", marginTop: 4 }}>📸 @mvmarroquineria.accesorios</a>
+            <button onClick=${onOpenAuth} style=${{ marginTop: 20, background: "none", border: "none", color: "rgba(255,255,255,0.15)", fontSize: 11, cursor: "pointer", textDecoration: "underline", fontFamily: "sans-serif" }}>acceso privado</button>
           </footer>
 
           <!-- CART DRAWER -->
-          ${cartDrawerHtml}
+          ${cartOpen && html`
+            <div style=${s.overlayDrawer} onClick=${() => setCartOpen(false)}>
+              <div style=${s.drawer} onClick=${e => e.stopPropagation()} className="drawer">
+                
+                <div style=${{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: "1px solid " + BORDER }}>
+                  <h2 style=${{ fontSize: 22, fontWeight: 400, margin: 0 }}>Tu carrito</h2>
+                  <button style=${{ background: "none", border: "none", color: MUTED, fontSize: 18, cursor: "pointer" }} onClick=${() => setCartOpen(false)}>✕</button>
+                </div>
+
+                ${cart.length === 0 ? html`
+                  <div style=${{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                    <span style=${{ fontSize: 48 }}>🛒</span>
+                    <p style=${{ color: MUTED, fontFamily: "sans-serif" }}>Tu carrito está vacío</p>
+                  </div>
+                ` : html`
+                  <div style=${{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
+                    ${cart.map(item => html`
+                      <div key=${item.key} style=${{ display: "flex", alignItems: "center", gap: 12, padding: "14px 24px", borderBottom: "1px solid rgba(200,135,58,0.08)" }}>
+                        
+                        <!-- Mini Photo fallbacks to emoji -->
+                        ${item.images && item.images.length > 0 ? html`
+                          <img src=${item.images[0]} style=${{ width: 44, height: 44, objectFit: "cover", borderRadius: 4, background: "#f8f8f8" }} />
+                        ` : html`
+                          <span style=${{ fontSize: 32, flexShrink: 0 }}>${item.emoji}</span>
+                        `}
+
+                        <div style=${{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+                          <span style=${{ fontSize: 15, fontWeight: 500 }}>${item.name}</span>
+                          <span style=${{ fontSize: 11, color: MUTED, fontFamily: "sans-serif" }}>${item.color}</span>
+                          <span style=${{ fontSize: 14, color: ACCENT, fontFamily: "sans-serif" }}>${fmt(item.price)}</span>
+                        </div>
+                        <div style=${{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <button style=${s.qtyBtn} onClick=${() => updateQty(item.key, -1)}>−</button>
+                          <span style=${{ fontSize: 15, minWidth: 20, textAlign: "center", fontFamily: "sans-serif" }}>${item.qty}</span>
+                          <button style=${s.qtyBtn} onClick=${() => updateQty(item.key, 1)}>+</button>
+                        </div>
+                        <button style=${{ background: "none", border: "none", color: "#4a3828", fontSize: 14, cursor: "pointer" }} onClick=${() => removeFromCart(item.key)}>✕</button>
+                      </div>
+                    `)}
+                  </div>
+
+                  <!-- CARTR PANEL WITH SHIPPING CALCULATOR AND COUPONS -->
+                  <div style=${{ padding: "20px 24px", borderTop: "1px solid " + BORDER, display: "flex", flexDirection: "column", gap: 14, background: SURFACE }}>
+                    
+                    <!-- CALCULADOR DE ENVIO -->
+                    <div style=${{ borderBottom: "1px solid rgba(200,135,58,0.08)", paddingBottom: 12 }}>
+                      <button onClick=${() => setShippingCalcExpanded(!shippingCalcExpanded)} style=${{ background: "none", border: "none", color: ACCENT, width: "100%", textAlign: "left", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "sans-serif" }}>
+                        <span>📍 Calcular envío</span>
+                        <span>${shippingCalcExpanded ? "▲" : "▼"}</span>
+                      </button>
+                      
+                      ${shippingCalcExpanded && html`
+                        <div style=${{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                          <select value=${selectedZone ? selectedZone.id : ""} onChange=${e => setSelectedZone(activeShippingZones.find(z => z.id === e.target.value) || null)} style=${s.input}>
+                            ${activeShippingZones.map(z => html`
+                              <option key=${z.id} value=${z.id}>${z.name} ${z.price === 0 ? "(Gratis)" : z.price === -1 ? "(Consultar)" : "(" + fmt(z.price) + ")"}</option>
+                            `)}
+                          </select>
+                          ${selectedZone && html`
+                            <p style=${{ fontSize: 12, fontFamily: "sans-serif" }}>
+                              ${selectedZone.price === 0 ? html`<span style=${{ color: "#4ade80", fontWeight: 700 }}>✓ Envío gratis</span>` : selectedZone.price === -1 ? html`<span style=${{ color: MUTED }}>Te informamos el costo por WhatsApp</span>` : html`Costo: <span style=${{ color: ACCENT, fontWeight: 700 }}>${fmt(selectedZone.price)}</span>`}
+                            </p>
+                          `}
+                        </div>
+                      `}
+                    </div>
+
+                    <!-- GESTION DE CUPONES -->
+                    <div style=${{ borderBottom: "1px solid rgba(200,135,58,0.08)", paddingBottom: 12 }}>
+                      <div style=${{ display: "flex", gap: 8 }}>
+                        <input placeholder="¿Tenés un cupón?" value=${couponInput} onChange=${e => setCouponInput(e.target.value)} style=${{ ...s.input, flex: 1, padding: "8px 12px" }} />
+                        <button onClick=${applyCoupon} style=${{ background: ACCENT, color: "#000", border: "none", borderRadius: 8, padding: "0 16px", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "sans-serif" }}>Aplicar</button>
+                      </div>
+                      {couponError && html`<p style=${{ color: "#f87171", fontSize: 12, marginTop: 6, fontFamily: "sans-serif" }}>${couponError}</p>`}
+                      {couponSuccess && html`<p style=${{ color: "#4ade80", fontSize: 12, marginTop: 6, fontFamily: "sans-serif" }}>${couponSuccess}</p>`}
+                    </div>
+
+                    <!-- DESGLOSE -->
+                    <div style=${{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, fontFamily: "sans-serif" }}>
+                      <div style=${{ display: "flex", justifyContent: "space-between" }}>
+                        <span style=${{ color: MUTED }}>Subtotal</span>
+                        <span>${fmt(subtotal)}</span>
+                      </div>
+                      ${appliedCoupon && html`
+                        <div style=${{ display: "flex", justifyContent: "space-between", color: "#4ade80" }}>
+                          <span>Descuento (${appliedCoupon.code})</span>
+                          <span>-${fmt(discount)}</span>
+                        </div>
+                      `}
+                      <div style=${{ display: "flex", justifyContent: "space-between" }}>
+                        <span style=${{ color: MUTED }}>Envío</span>
+                        <span>${selectedZone ? (selectedZone.price === 0 ? "Gratis" : selectedZone.price === -1 ? "A consultar" : fmt(selectedZone.price)) : "$0"}</span>
+                      </div>
+                      <div style=${{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderTop: "1px solid rgba(200,135,58,0.15)", paddingTop: 10, marginTop: 6 }}>
+                        <span style=${{ fontSize: 14, fontWeight: 700, textTransform: "uppercase" }}>Total</span>
+                        <span style=${{ fontSize: 24, fontWeight: 700, color: ACCENT }}>${fmt(finalTotal)}</span>
+                      </div>
+                    </div>
+
+                    <button className="wa-btn" style=${{ background: "#25D366", color: "#fff", border: "none", borderRadius: 8, padding: 16, fontSize: 15, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "sans-serif" }} onClick=${handlePreCheckout}>
+                      💬 Pedir por WhatsApp
+                    </button>
+                    <p style=${{ fontSize: 11, color: "#4a3828", textAlign: "center", lineHeight: 1.5, fontFamily: "sans-serif", margin: 0 }}>Te contactaremos para confirmar disponibilidad y coordinar el pago.</p>
+                  </div>
+                `}
+
+              </div>
+            </div>
+          `}
 
           <!-- FAB -->
-          ${cartFabHtml}
+          ${cartCount > 0 && !cartOpen && html`
+            <button className="fab" style=${s.fab} onClick=${() => setCartOpen(true)}>
+              🛒 <span style=${{ background: BG, color: ACCENT, borderRadius: "50%", width: 22, height: 22, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif" }}>${cartCount}</span>
+            </button>
+          `}
 
           <!-- CART RECOVERY TOAST -->
-          ${cartRecoveryToastHtml}
+          ${showRecoveryToast && html`
+            <${CartRecoveryToast}
+              count=${cartCount}
+              onOpen=${() => { setCartOpen(true); setShowRecoveryToast(false); }}
+              onClose=${() => setShowRecoveryToast(false)}
+            />
+          `}
 
           <!-- PRE-CHECKOUT DIALOG -->
-          ${checkoutModalHtml}
+          ${checkoutOpen && html`
+            <${CheckoutModal}
+              clientData=${clientData}
+              onConfirm=${processCheckout}
+              onClose=${() => setCheckoutOpen(false)}
+            />
+          `}
 
           <!-- LIGHTBOX MODAL -->
-          ${lightboxModalHtml}
+          ${lightboxState && html`
+            <${LightboxModal}
+              images=${lightboxState.images}
+              initialIndex=${lightboxState.index}
+              onClose=${() => setLightboxState(null)}
+            />
+          `}
 
           ${children}
         </div>
       `;
     }
+
+    const removeFromCart = (key) => setCart(prev => prev.filter(i => i.key !== key));
 
     // ─────────────────────────────────────────────
     // COMPONENTE: TARJETA DE PRODUCTO INDIVIDUAL
@@ -1360,30 +1027,6 @@
       const [color, setColor] = useState(product.colors[0]);
       const [qty, setQty] = useState(1);
 
-      const [touchStart, setTouchStart] = useState(null);
-      const [touchEnd, setTouchEnd] = useState(null);
-
-      const handleTouchStart = (e) => {
-        setTouchStart(e.targetTouches[0].clientX);
-        setTouchEnd(e.targetTouches[0].clientX);
-      };
-
-      const handleTouchMove = (e) => {
-        setTouchEnd(e.targetTouches[0].clientX);
-      };
-
-      const handleTouchEnd = () => {
-        if (!product.images || product.images.length <= 1 || touchStart === null || touchEnd === null) return;
-        const diff = touchStart - touchEnd;
-        if (diff > 50) { // Swipe left -> next image
-          setImgIndex(prev => (prev + 1) % product.images.length);
-        } else if (diff < -50) { // Swipe right -> prev image
-          setImgIndex(prev => (prev - 1 + product.images.length) % product.images.length);
-        }
-        setTouchStart(null);
-        setTouchEnd(null);
-      };
-
       // Reset internal index/color on product swap
       useEffect(() => {
         setImgIndex(0);
@@ -1425,61 +1068,32 @@
           <!-- DETALLE GRID -->
           <div style=${{ display: "grid", gridTemplateColumns: "1fr", gap: 40 }} className="detail-grid">
             
-            <!-- COLUMNA IZQUIERDA: GALERIA CON SWIPER CAROUSEL -->
+            <!-- COLUMNA IZQUIERDA: GALERIA -->
             <div style=${{ display: "flex", flexDirection: "column", gap: 16 }}>
               ${product.images && product.images.length > 0 ? html`
-                <div style=${{ position: "relative", width: "100%", height: 500, background: "#160f0a", borderRadius: 12, border: "1px solid " + BORDER, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div>
                   <img
                     src=${product.images[imgIndex]}
                     onClick=${() => onOpenLightbox(product.images, imgIndex)}
-                    onTouchStart=${handleTouchStart}
-                    onTouchMove=${handleTouchMove}
-                    onTouchEnd=${handleTouchEnd}
-                    style=${{ width: "100%", height: "100%", objectFit: "contain", cursor: "pointer" }}
+                    style=${{ width: "100%", height: 500, objectFit: "contain", background: "#160f0a", borderRadius: 12, border: "1px solid " + BORDER, cursor: "pointer" }}
                     className="detail-main-img"
                   />
-                  
-                  <!-- Left/Right Overlay Arrows for Desktop & Mobile Clicks -->
-                  ${product.images.length > 1 && html`
-                    <button
-                      onClick=${(e) => { e.stopPropagation(); setImgIndex(prev => (prev - 1 + product.images.length) % product.images.length); }}
-                      style=${{ position: "absolute", left: 16, background: "rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "50%", width: 42, height: 42, color: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}
-                      className="carousel-arrow"
-                    >←</button>
-                    <button
-                      onClick=${(e) => { e.stopPropagation(); setImgIndex(prev => (prev + 1) % product.images.length); }}
-                      style=${{ position: "absolute", right: 16, background: "rgba(0,0,0,0.5)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "50%", width: 42, height: 42, color: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}
-                      className="carousel-arrow"
-                    >→</button>
-                  `}
-
-                  <!-- Visual Dots Indicator overlay -->
-                  ${product.images.length > 1 && html`
-                    <div style=${{ position: "absolute", bottom: 16, display: "flex", gap: 6 }}>
-                      ${product.images.map((_, i) => html`
-                        <span key=${i} style=${{ width: imgIndex === i ? 18 : 6, height: 6, borderRadius: 3, background: imgIndex === i ? ACCENT : "rgba(255,255,255,0.4)", transition: "all 0.25s ease" }} />
-                      `)}
-                    </div>
-                  `}
                 </div>
-                
-                <!-- Thumbnails swipe strip underneath -->
                 ${product.images.length > 1 && html`
-                  <div style=${{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }} className="custom-scroll">
+                  <div style=${{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8 }}>
                     ${product.images.map((img, i) => html`
                       <img
                         key=${i}
                         src=${img}
                         onClick=${() => setImgIndex(i)}
                         style=${{
-                          width: 72,
-                          height: 72,
+                          width: 68,
+                          height: 68,
                           objectFit: "cover",
                           borderRadius: 8,
                           cursor: "pointer",
                           background: "#160f0a",
-                          border: imgIndex === i ? "2.5px solid " + ACCENT : "1px solid " + BORDER,
-                          transition: "all 0.15s"
+                          border: imgIndex === i ? "2px solid " + ACCENT : "1px solid " + BORDER
                         }}
                       />
                     `)}
@@ -1626,6 +1240,7 @@
               ${[
                 { id: "products", label: "📦 Productos" },
                 { id: "orders", label: "📋 Pedidos" },
+                { id: "customers", label: "👥 Clientes" },
                 { id: "coupons", label: "🎫 Cupones" },
                 { id: "stats", label: "📊 Estadísticas" },
                 { id: "config", label: "⚙️ Configuración" }
@@ -1656,9 +1271,10 @@
             <div style=${{ flex: 1, padding: 32, overflowY: "auto" }}>
               ${adminTab === "products" && html`<${AdminProducts} products=${products} updateProducts=${updateProducts} showToast=${showToast} />`}
               ${adminTab === "orders" && html`<${AdminOrders} orders=${orders} updateOrders=${updateOrders} showToast=${showToast} />`}
+              ${adminTab === "customers" && html`<${AdminCustomers} customers=${customers} updateCustomers=${updateCustomers} orders=${orders} showToast=${showToast} />`}
               ${adminTab === "coupons" && html`<${AdminCoupons} coupons=${coupons} updateCoupons=${updateCoupons} showToast=${showToast} />`}
               ${adminTab === "stats" && html`<${AdminStats} orders=${orders} products=${products} />`}
-              ${adminTab === "config" && html`<${AdminConfig} shippingZones=${shippingZones} updateShippingZones=${updateShippingZones} config=${config} updateConfig=${updateConfig} products=${products} updateProducts=${updateProducts} showToast=${showToast} />`}
+              ${adminTab === "config" && html`<${AdminConfig} shippingZones=${shippingZones} updateShippingZones=${updateShippingZones} config=${config} updateConfig=${updateConfig} showToast=${showToast} />`}
             </div>
 
           </div>
@@ -1827,23 +1443,6 @@
     // ─────────────────────────────────────────────
     function EditModal({ product, onSave, onClose }) {
       const isNew = !product;
-      const [uploading, setUploading] = useState(false);
-
-      const handleImageUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        setUploading(true);
-        try {
-          const url = await FirebaseService.uploadImage(file);
-          const current = form.imagesStr ? form.imagesStr.split(",").map(c => c.trim()).filter(Boolean) : [];
-          current.push(url);
-          setForm(f => ({ ...f, imagesStr: current.join(", ") }));
-        } catch (err) {
-          alert("Error al subir la imagen: " + err.message);
-        } finally {
-          setUploading(false);
-        }
-      };
 
       const [form, setForm] = useState(product ? {
         ...product,
@@ -1860,24 +1459,6 @@
       });
 
       const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-      const getImagesArray = () => {
-        return form.imagesStr ? form.imagesStr.split(",").map(c => c.trim()).filter(Boolean) : [];
-      };
-
-      const removeImage = (idx) => {
-        const arr = getImagesArray();
-        arr.splice(idx, 1);
-        set("imagesStr", arr.join(", "));
-      };
-
-      const setAsPrimary = (idx) => {
-        if (idx === 0) return;
-        const arr = getImagesArray();
-        const item = arr.splice(idx, 1)[0];
-        arr.unshift(item);
-        set("imagesStr", arr.join(", "));
-      };
 
       const submit = () => {
         if (!form.name || !form.price) return;
@@ -1939,68 +1520,9 @@
                 </div>
               </div>
 
-              <!-- FOTOS REALES (URLs) + CARGADOR CLOUDINARY -->
+              <!-- FOTOS REALES (URLs) -->
               <div>
-                <label style=${s.label}>Fotos del Producto</label>
-                
-                <!-- Selector de Archivo / Drop Area -->
-                <div style=${{
-                  border: "2px dashed " + BORDER,
-                  borderRadius: 8,
-                  padding: "16px 20px",
-                  background: SURFACE,
-                  textAlign: "center",
-                  cursor: "pointer",
-                  position: "relative",
-                  marginBottom: 16,
-                  transition: "all 0.2s"
-                }} className="photo-upload-zone">
-                  ${uploading ? html`
-                    <div style=${{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-                      <div style=${{ width: 18, height: 18, border: "2px solid rgba(200,135,58,0.2)", borderTopColor: ACCENT, borderRadius: "50%", animation: "spin 0.6s linear infinite" }}></div>
-                      <span style=${{ fontSize: 13, color: MUTED }}>Subiendo foto a Cloudinary...</span>
-                    </div>
-                  ` : html`
-                    <span style=${{ fontSize: 13, color: TEXT }}>📸 Arrastrá una foto acá o hacé clic para seleccionar</span>
-                    <input type="file" accept="image/*" onChange=${handleImageUpload} style=${{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%" }} />
-                  `}
-                </div>
-
-                <!-- Visual Thumbnail Manager -->
-                ${getImagesArray().length > 0 && html`
-                  <div style=${{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-                    ${getImagesArray().map((img, idx) => html`
-                      <div key=${idx} style=${{ position: "relative", width: 78, height: 78, borderRadius: 8, overflow: "hidden", border: idx === 0 ? "2px solid " + ACCENT : "1px solid " + BORDER, background: "#160f0a" }}>
-                        <img src=${img} style=${{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        
-                        <!-- Badges and controls -->
-                        ${idx === 0 && html`
-                          <span style=${{ position: "absolute", bottom: 0, left: 0, right: 0, background: ACCENT, color: "#000", fontSize: 9, fontWeight: 700, textAlign: "center", padding: "1px 0" }}>Principal</span>
-                        `}
-                        
-                        <!-- Hover controls (always present but styling is clear) -->
-                        <div style=${{ position: "absolute", top: 2, right: 2, display: "flex", gap: 2 }}>
-                          <button
-                            onClick=${() => removeImage(idx)}
-                            style=${{ background: "rgba(239,68,68,0.85)", border: "none", color: "#fff", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, cursor: "pointer", fontWeight: 700 }}
-                            title="Eliminar foto"
-                          >✕</button>
-                        </div>
-                        
-                        ${idx > 0 && html`
-                          <button
-                            onClick=${() => setAsPrimary(idx)}
-                            style=${{ position: "absolute", bottom: 2, left: 2, right: 2, background: "rgba(0,0,0,0.75)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", borderRadius: 4, fontSize: 8, cursor: "pointer", padding: "2px 0", textAlign: "center" }}
-                            title="Hacer Principal"
-                          >Principal</button>
-                        `}
-                      </div>
-                    `)}
-                  </div>
-                `}
-
-                <!-- Fallback manual (lista de URLs) -->
-                <label style=${{ ...s.label, fontSize: 10, color: MUTED, marginTop: 8 }}>URLs de Fotos (separadas por coma)</label>
+                <label style=${s.label}>URLs de Fotos (separadas por coma)</label>
                 <textarea value=${form.imagesStr} onChange=${e => set("imagesStr", e.target.value)} placeholder="https://ejemplo.com/foto1.jpg, https://ejemplo.com/foto2.jpg" rows="2" style=${{ ...s.input, resize: "vertical" }} />
               </div>
 
@@ -2797,13 +2319,11 @@
     // ─────────────────────────────────────────────
     // TAB ADMIN: CONFIGURACIÓN ZONAS / BANNERS
     // ─────────────────────────────────────────────
-    function AdminConfig({ shippingZones, updateShippingZones, config, updateConfig, products, updateProducts, showToast }) {
+    function AdminConfig({ shippingZones, updateShippingZones, config, updateConfig, showToast }) {
       const [newZone, setNewZone] = useState({ name: "", price: "", active: true });
       const [bannerText, setBannerText] = useState(config.bannerText || "");
       const [bannerBg, setBannerBg] = useState(config.bannerBg || "#C8873A");
       const [bannerActive, setBannerActive] = useState(config.bannerActive !== false);
-      const [waNumber, setWaNumber] = useState(config.waNumber || "5491100000000");
-      const [waTemplate, setWaTemplate] = useState(config.waTemplate || "");
 
       const addZone = () => {
         if (!newZone.name || newZone.price === "") return;
@@ -2823,233 +2343,43 @@
         showToast("✓ Estado de la zona actualizado");
       };
 
-      const saveGlobalConfig = () => {
+      const saveBannerConfig = () => {
         updateConfig({
-          ...config,
           bannerText,
           bannerBg,
-          bannerActive,
-          waNumber,
-          waTemplate
+          bannerActive
         });
-        showToast("✓ Configuración global guardada");
-      };
-
-      const exportJSON = () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(products, null, 2));
-        const downloadAnchor = document.createElement('a');
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", "mv_productos_respaldo.json");
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        showToast("📥 Respaldo JSON descargado");
-      };
-
-      const exportExcel = () => {
-        try {
-          const ws = XLSX.utils.json_to_sheet(products.map(p => ({
-            ID: p.id,
-            Nombre: p.name,
-            Categoria: p.category,
-            Precio: p.price,
-            Colores: p.colors.join(", "),
-            Descripcion: p.description,
-            Etiqueta: p.tag || "",
-            Destacado: p.featured ? "SÍ" : "NO",
-            Disponible: p.available ? "SÍ" : "NO",
-            FotoPrincipal: p.images && p.images.length > 0 ? p.images[0] : "",
-            OtrasFotos: p.images && p.images.length > 1 ? p.images.slice(1).join(", ") : ""
-          })));
-          const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, "Productos");
-          XLSX.writeFile(wb, "mv_productos_respaldo.xlsx");
-          showToast("📥 Respaldo Excel descargado");
-        } catch (err) {
-          alert("Error al exportar a Excel: " + err.message);
-        }
-      };
-
-      const handleImportFile = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
-        
-        reader.onload = (evt) => {
-          try {
-            let imported = [];
-            if (isExcel) {
-              const data = new Uint8Array(evt.target.result);
-              const workbook = XLSX.read(data, { type: "array" });
-              const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-              const rows = XLSX.utils.sheet_to_json(firstSheet);
-              
-              imported = rows.map(r => {
-                const colors = r.Colores ? String(r.Colores).split(",").map(c => c.trim()).filter(Boolean) : ["Camel", "Negro"];
-                const images = [];
-                if (r.FotoPrincipal) images.push(String(r.FotoPrincipal));
-                if (r.OtrasFotos) {
-                  String(r.OtrasFotos).split(",").map(c => c.trim()).filter(Boolean).forEach(img => images.push(img));
-                }
-                return {
-                  id: Number(r.ID) || Date.now() + Math.floor(Math.random() * 1000),
-                  name: String(r.Nombre || "Producto Importado"),
-                  category: String(r.Categoria || "Bolsos"),
-                  price: Number(r.Precio) || 0,
-                  colors,
-                  description: String(r.Descripcion || ""),
-                  emoji: "👜",
-                  tag: r.Etiqueta ? String(r.Etiqueta) : null,
-                  featured: String(r.Destacado) === "SÍ",
-                  available: String(r.Disponible) !== "NO",
-                  images
-                };
-              });
-            } else {
-              const json = JSON.parse(evt.target.result);
-              if (!Array.isArray(json)) throw new Error("El archivo JSON debe contener un arreglo de productos.");
-              imported = json.map(r => ({
-                id: r.id || Date.now() + Math.floor(Math.random() * 1000),
-                name: r.name || "Producto Importado",
-                category: r.category || "Bolsos",
-                price: Number(r.price) || 0,
-                colors: Array.isArray(r.colors) ? r.colors : ["Camel", "Negro"],
-                description: r.description || "",
-                emoji: r.emoji || "👜",
-                tag: r.tag || null,
-                featured: !!r.featured,
-                available: r.available !== false,
-                images: Array.isArray(r.images) ? r.images : []
-              }));
-            }
-            
-            if (imported.length === 0) {
-              alert("No se encontraron productos válidos en el archivo.");
-              return;
-            }
-            
-            if (confirm(`¿Estás seguro de importar ${imported.length} productos? Esto reemplazará el catálogo existente.`)) {
-              updateProducts(imported);
-              showToast(`✓ ${imported.length} productos importados correctamente`);
-            }
-          } catch (err) {
-            alert("Error al procesar archivo: " + err.message);
-          }
-        };
-        
-        if (isExcel) {
-          reader.readAsArrayBuffer(file);
-        } else {
-          reader.readAsText(file);
-        }
-        e.target.value = "";
+        showToast("✓ Configuración del banner guardada");
       };
 
       return html`
         <div style=${{ display: "grid", gridTemplateColumns: "1fr", gap: 32 }} className="stats-charts">
           
-          <!-- CONFIGURACIÓN GLOBAL DE BANNER Y WHATSAPP -->
+          <!-- BANNER CONFIG -->
           <div style=${{ background: SURFACE, border: "1px solid " + BORDER, borderRadius: 12, padding: 24 }}>
-            <h3 style=${{ fontSize: 18, fontFamily: "'Cormorant Garamond',serif", color: TEXT, marginBottom: 20 }}>Configuración de Banner y WhatsApp</h3>
+            <h3 style=${{ fontSize: 18, fontFamily: "'Cormorant Garamond',serif", color: TEXT, marginBottom: 20 }}>Banner Promocional Superior</h3>
             
-            <div style=${{ display: "flex", flexDirection: "column", gap: 20 }}>
-              
-              <!-- BANNER SECTION -->
-              <div style=${{ borderBottom: "1px solid rgba(200,135,58,0.1)", paddingBottom: 20 }}>
-                <h4 style=${{ color: ACCENT, fontSize: 14, marginBottom: 12 }}>Banner Promocional Superior</h4>
-                <div style=${{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  <div>
-                    <label style=${s.label}>Texto del Banner (Vacío para ocultar)</label>
-                    <input value=${bannerText} onChange=${e => setBannerText(e.target.value)} placeholder="Ej: ✨ ¡Envíos gratis en Merlo centro! ✨" style=${s.input} />
-                  </div>
-                  <div style=${{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                    <div>
-                      <label style=${s.label}>Color de Fondo</label>
-                      <input type="color" value=${bannerBg} onChange=${e => setBannerBg(e.target.value)} style=${{ ...s.input, padding: 6, height: 42 }} />
-                    </div>
-                    <div>
-                      <label style=${s.label}>Estado del Banner</label>
-                      <label style=${{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", height: 42, color: TEXT, fontFamily: "sans-serif" }}>
-                        <input type="checkbox" checked=${bannerActive} onChange=${e => setBannerActive(e.target.checked)} style=${{ accentColor: ACCENT }} />
-                        Banner Activo
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- WHATSAPP SECTION -->
+            <div style=${{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
-                <h4 style=${{ color: ACCENT, fontSize: 14, marginBottom: 12 }}>Integración de Pedidos por WhatsApp</h4>
-                <div style=${{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  <div>
-                    <label style=${s.label}>Número de Celular de WhatsApp (Formato internacional, ej: 5491133334444)</label>
-                    <input value=${waNumber} onChange=${e => setWaNumber(e.target.value)} placeholder="Ej: 5491133334444" style=${s.input} />
-                  </div>
-                  <div>
-                    <label style=${s.label}>Plantilla del Mensaje de Compra</label>
-                    <textarea
-                      value=${waTemplate}
-                      onChange=${e => setWaTemplate(e.target.value)}
-                      placeholder="Usa {details} para los productos, {total} para el precio final, {shipping} para los datos de envío, {name} para el cliente y {phone} para su celular..."
-                      rows="6"
-                      style=${{ ...s.input, resize: "vertical", fontFamily: "monospace", fontSize: 12, lineHeight: 1.5 }}
-                    />
-                    <small style=${{ color: MUTED, fontSize: 11, marginTop: 4, display: "block" }}>
-                      Campos soportados: <strong>{details}</strong>, <strong>{shipping}</strong>, <strong>{total}</strong>, <strong>{name}</strong>, <strong>{phone}</strong>.
-                    </small>
-                  </div>
-                </div>
+                <label style=${s.label}>Texto del Banner (Vacío para ocultar)</label>
+                <input value=${bannerText} onChange=${e => setBannerText(e.target.value)} placeholder="Ej: ✨ ¡Envíos gratis en Merlo centro! ✨" style=${s.input} />
               </div>
-
-              <button onClick=${saveGlobalConfig} style=${{ ...s.goldBtn, width: "auto", padding: "12px 32px", alignSelf: "flex-end" }} className="primary-btn">
-                Guardar Configuración Global
-              </button>
-            </div>
-          </div>
-
-          <!-- BACKUP & RESTORE UTILITIES -->
-          <div style=${{ background: SURFACE, border: "1px solid " + BORDER, borderRadius: 12, padding: 24 }}>
-            <h3 style=${{ fontSize: 18, fontFamily: "'Cormorant Garamond',serif", color: TEXT, marginBottom: 20 }}>Copia de Seguridad y Restauración (Catálogo)</h3>
-            <p style=${{ fontSize: 13, color: MUTED, lineHeight: 1.6, marginBottom: 24 }}>
-              Crea copias de respaldo completas de tu catálogo en formatos profesionales (Excel o JSON). Puedes descargar el archivo para guardarlo y restaurarlo en el futuro o migrar productos fácilmente.
-            </p>
-            
-            <div style=${{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }} className="stats-charts">
-              
-              <!-- EXPORT OPTIONS -->
-              <div style=${{ background: SURFACE2, border: "1px solid " + BORDER, borderRadius: 8, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
-                <h4 style=${{ color: ACCENT, fontSize: 14, margin: 0 }}>Descargar Respaldo</h4>
-                <p style=${{ fontSize: 12, color: MUTED, margin: 0, lineHeight: 1.5 }}>Descarga el listado completo de productos actuales en un archivo local.</p>
-                <div style=${{ display: "flex", gap: 12, marginTop: "auto" }}>
-                  <button onClick=${exportExcel} style=${{ flex: 1, padding: "10px 14px", background: "#107c41", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                    📥 Exportar Excel
-                  </button>
-                  <button onClick=${exportJSON} style=${{ flex: 1, padding: "10px 14px", background: SURFACE, border: "1px solid " + BORDER, color: ACCENT, borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                    📥 Exportar JSON
-                  </button>
+              <div style=${{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <label style=${s.label}>Color de Fondo</label>
+                  <input type="color" value=${bannerBg} onChange=${e => setBannerBg(e.target.value)} style=${{ ...s.input, padding: 6, height: 42 }} />
                 </div>
-              </div>
-
-              <!-- IMPORT OPTIONS -->
-              <div style=${{ background: SURFACE2, border: "1px solid " + BORDER, borderRadius: 8, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
-                <h4 style=${{ color: ACCENT, fontSize: 14, margin: 0 }}>Restaurar o Importar Respaldo</h4>
-                <p style=${{ fontSize: 12, color: MUTED, margin: 0, lineHeight: 1.5 }}>Sube un archivo de respaldo Excel (.xlsx) o JSON previamente descargado para sobrescribir el catálogo.</p>
-                <div style=${{ marginTop: "auto", position: "relative" }}>
-                  <input
-                    type="file"
-                    accept=".json,.xlsx,.xls"
-                    onChange=${handleImportFile}
-                    style=${{ display: "none" }}
-                    id="backup-file-uploader"
-                  />
-                  <label htmlFor="backup-file-uploader" style=${{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 16px", background: ACCENT, color: "#000", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 700, textAlign: "center" }} className="primary-btn">
-                    📤 Seleccionar Archivo (.xlsx / .json)
+                <div>
+                  <label style=${s.label}>Estado</label>
+                  <label style=${{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", height: 42, color: TEXT, fontFamily: "sans-serif" }}>
+                    <input type="checkbox" checked=${bannerActive} onChange=${e => setBannerActive(e.target.checked)} style=${{ accentColor: ACCENT }} />
+                    Banner Activo
                   </label>
                 </div>
               </div>
-
+              <button onClick=${saveBannerConfig} style=${{ ...s.goldBtn, width: "auto", padding: "10px 24px", alignSelf: "flex-end" }} className="primary-btn">
+                Guardar Banner
+              </button>
             </div>
           </div>
 
@@ -3119,7 +2449,7 @@
       nav: { position: "sticky", top: 0, zIndex: 100, background: "rgba(14,11,8,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid " + BORDER },
       navInner: { maxWidth: 1200, margin: "0 auto", padding: "0 24px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between" },
       navLogo: { display: "flex", alignItems: "center", gap: 10 },
-      logoImg: { height: 42, width: "auto", objectFit: "contain", filter: "invert(1) brightness(1.2)", mixBlendMode: "screen" },
+      logoImg: { height: 32, width: "auto", objectFit: "contain" },
       logoM: { fontFamily: "'Cinzel Decorative',serif", fontSize: 22, fontWeight: 700, color: ACCENT, letterSpacing: 2 },
       logoText: { fontSize: 13, fontWeight: 600, letterSpacing: 4, color: TEXT, textTransform: "uppercase" },
       
@@ -3149,10 +2479,7 @@
       
       label: { display: "block", fontSize: 11, fontWeight: 700, color: MUTED, marginBottom: 8, letterSpacing: 2, textTransform: "uppercase", fontFamily: "sans-serif" },
       input: { width: "100%", background: SURFACE2, border: "1px solid rgba(200,135,58,0.25)", borderRadius: 8, padding: "11px 14px", color: TEXT, fontSize: 14, fontFamily: "sans-serif", outline: "none" },
-      recoveryToast: { position: "fixed", bottom: 28, left: 28, background: SURFACE, border: "1px solid " + BORDER, borderLeft: "4px solid " + ACCENT, padding: "16px 24px", borderRadius: 8, color: TEXT, boxShadow: "0 10px 30px rgba(0,0,0,0.6)", zIndex: 999, animation: "slideInLeft 0.3s ease", maxWidth: 350 },
-      footer: { background: SURFACE, borderTop: "1px solid " + BORDER, padding: "40px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", marginTop: 40 },
-      footerInsta: { color: ACCENT, textDecoration: "none", fontSize: 13, fontFamily: "sans-serif", fontWeight: 500, transition: "opacity 0.2s" },
-      privateAccessBtn: { background: "none", border: "1px solid rgba(200,135,58,0.2)", color: MUTED, borderRadius: 6, padding: "6px 12px", fontSize: 11, cursor: "pointer", fontFamily: "sans-serif", textTransform: "uppercase", letterSpacing: 1, transition: "all 0.2s ease" }
+      recoveryToast: { position: "fixed", bottom: 28, left: 28, background: SURFACE, border: "1px solid " + BORDER, borderLeft: "4px solid " + ACCENT, padding: "16px 24px", borderRadius: 8, color: TEXT, boxShadow: "0 10px 30px rgba(0,0,0,0.6)", zIndex: 999, animation: "slideInLeft 0.3s ease", maxWidth: 350 }
     };
 
     const shopCSS = `
@@ -3163,8 +2490,6 @@
       .wa-btn:hover { opacity:0.9; }
       .fab:hover { transform:scale(1.05); }
       .cat-btn:hover { color:#C8873A !important; border-color:#C8873A !important; }
-      .private-access-btn:hover { border-color:#C8873A !important; color:#C8873A !important; background:rgba(200,135,58,0.05) !important; }
-      .footer-insta:hover { opacity:0.8; text-decoration:underline !important; }
       
       /* Slider doble */
       input[type="range"].dual-slider {
@@ -3303,6 +2628,3 @@
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(html`<${App} />`);
   
-    </script>
-</body>
-</html>
